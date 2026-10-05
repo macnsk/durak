@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Дурак в Telegram</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * { box-sizing: border-box; user-select: none; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #1b5e20;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100vh;
+      overflow: hidden;
+      padding: 12px;
+    }
+    .hud { font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+    .status-msg { text-align: center; font-weight: bold; background: rgba(0,0,0,0.3); padding: 6px; border-radius: 8px; }
+    .table-zone {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      margin: 10px 0;
+      border: 2px dashed rgba(255,255,255,0.2);
+      border-radius: 12px;
+    }
+    .card-pair { display: flex; flex-direction: column; gap: 6px; }
+    .card {
+      width: 55px;
+      height: 82px;
+      background: #fff;
+      border-radius: 6px;
+      color: #000;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-weight: bold;
+      font-size: 16px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+      cursor: pointer;
+    }
+    .card.red { color: #d32f2f; }
+    .hand {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      min-height: 90px;
+    }
+    .controls { display: flex; gap: 8px; }
+    button {
+      flex: 1;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      font-weight: bold;
+      font-size: 15px;
+      background: #fbc02d;
+      color: #000;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; }
+  </style>
+</head>
+<body>
+
+  <div class="hud">
+    <div>Бот карт: <span id="bot-count">6</span></div>
+    <div>Колода: <span id="deck-count">24</span> | Козырь: <span id="trump-val"></span></div>
+  </div>
+
+  <div class="status-msg" id="status">Твой ход! Выбери карту.</div>
+
+  <div class="table-zone" id="table"></div>
+
+  <div>
+    <div class="hand" id="player-hand"></div>
+    <div class="controls">
+      <button id="action-btn" onclick="handleAction()">Бито</button>
+    </div>
+  </div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    if (tg) { tg.ready(); tg.expand(); }
+
+    const SUITS = ['♠', '♥', '♦', '♣'];
+    const RANKS = ['6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+    const VALUES = { '6':6, '7':7, '8':8, '9':9, '10':10, 'J':11, 'Q':12, 'K':13, 'A':14 };
+
+    let deck = [], playerHand = [], botHand = [];
+    let trumpSuit = '', trumpCard = null;
+    let table = [];
+    let isPlayerTurn = true;
+
+    function initGame() {
+      deck = [];
+      for (let s of SUITS) {
+        for (let r of RANKS) {
+          deck.push({ suit: s, rank: r, isRed: s === '♥' || s === '♦' });
+        }
+      }
+      deck.sort(() => Math.random() - 0.5);
+
+      trumpCard = deck[deck.length - 1];
+      trumpSuit = trumpCard.suit;
+
+      playerHand = deck.splice(0, 6);
+      botHand = deck.splice(0, 6);
+
+      render();
+    }
+
+    function renderCard(c) {
+      return `<div class="card ${c.isRed ? 'red' : ''}">${c.rank}<div>${c.suit}</div></div>`;
+    }
+
+    function render() {
+      document.getElementById('deck-count').innerText = deck.length;
+      document.getElementById('bot-count').innerText = botHand.length;
+      document.getElementById('trump-val').innerText = `${trumpCard.rank}${trumpCard.suit}`;
+
+      const handDiv = document.getElementById('player-hand');
+      handDiv.innerHTML = playerHand.map((c, i) => 
+        `<div onclick="playerPlayCard(${i})">${renderCard(c)}</div>`
+      ).join('');
+
+      const tableDiv = document.getElementById('table');
+      tableDiv.innerHTML = table.map(p => `
+        <div class="card-pair">
+          ${renderCard(p.attack)}
+          ${p.defend ? renderCard(p.defend) : '<div style="height:40px"></div>'}
+        </div>
+      `).join('');
+
+      const btn = document.getElementById('action-btn');
+      if (isPlayerTurn) {
+        btn.innerText = "Бито";
+        btn.disabled = table.length === 0 || table.some(p => !p.defend);
+      } else {
+        btn.innerText = "Беру карту";
+        btn.disabled = false;
+      }
+    }
+
+    function playerPlayCard(idx) {
+      const card = playerHand[idx];
+      if (isPlayerTurn) {
+        if (table.length === 0 || table.some(p => p.attack.rank === card.rank || p.defend?.rank === card.rank)) {
+          playerHand.splice(idx, 1);
+          table.push({ attack: card, defend: null });
+          render();
+          setTimeout(botDefend, 600);
+        }
+      } else {
+        const undefended = table.find(p => !p.defend);
+        if (undefended && canBeat(card, undefended.attack)) {
+          playerHand.splice(idx, 1);
+          undefended.defend = card;
+          render();
+        }
+      }
+    }
+
+    function canBeat(c1, c2) {
+      if (c1.suit === c2.suit) return VALUES[c1.rank] > VALUES[c2.rank];
+      return c1.suit === trumpSuit;
+    }
+
+    function botDefend() {
+      const undefended = table.find(p => !p.defend);
+      if (!undefended) return;
+
+      const beatCardIdx = botHand.findIndex(c => canBeat(c, undefended.attack));
+      if (beatCardIdx !== -1) {
+        undefended.defend = botHand.splice(beatCardIdx, 1)[0];
+        document.getElementById('status').innerText = "Бот отбился. Можешь подкинуть или нажать «Бито».";
+      } else {
+        document.getElementById('status').innerText = "Бот забирает карты.";
+        setTimeout(() => {
+          table.forEach(p => { botHand.push(p.attack); if (p.defend) botHand.push(p.defend); });
+          table = [];
+          refillHands();
+          render();
+        }, 1000);
+      }
+      render();
+    }
+
+    function handleAction() {
+      if (isPlayerTurn) {
+        table = [];
+        refillHands();
+        isPlayerTurn = false;
+        document.getElementById('status').innerText = "Ход бота. Отбивайся!";
+        render();
+        setTimeout(botAttack, 800);
+      } else {
+        table.forEach(p => { playerHand.push(p.attack); if (p.defend) playerHand.push(p.defend); });
+        table = [];
+        refillHands();
+        document.getElementById('status').innerText = "Ты взял. Ход бота.";
+        render();
+        setTimeout(botAttack, 800);
+      }
+    }
+
+    function botAttack() {
+      if (botHand.length === 0) return;
+      const card = botHand.shift();
+      table.push({ attack: card, defend: null });
+      render();
+    }
+
+    function refillHands() {
+      while (playerHand.length < 6 && deck.length > 0) playerHand.push(deck.shift());
+      while (botHand.length < 6 && deck.length > 0) botHand.push(deck.shift());
+    }
+
+    initGame();
+  </script>
+</body>
+</html>
