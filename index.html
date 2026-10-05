@@ -20,18 +20,47 @@
     }
     .hud { font-size: 15px; display: flex; justify-content: space-between; align-items: center; font-weight: 500; }
     .status-msg { text-align: center; font-weight: bold; background: rgba(0,0,0,0.35); padding: 8px; border-radius: 8px; margin: 6px 0; font-size: 14px; }
+    
+    /* Игровой стол */
     .table-zone {
       flex: 1;
       display: flex;
       justify-content: center;
       align-items: center;
-      gap: 10px;
+      gap: 20px;
       margin: 6px 0;
       border: 2px dashed rgba(255,255,255,0.25);
       border-radius: 12px;
       overflow-x: auto;
+      padding: 10px;
     }
-    .card-pair { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+
+    /* Слот под пару карт */
+    .card-pair {
+      position: relative;
+      width: 62px;
+      height: 98px;
+      flex-shrink: 0;
+    }
+
+    /* Атакующая карта лежит снизу */
+    .card-pair .attack-card {
+      position: absolute;
+      left: 0;
+      top: 0;
+      z-index: 1;
+    }
+
+    /* Отбивающая карта перекрывает атакующую со сдвигом и наклоном */
+    .card-pair .defend-card {
+      position: absolute;
+      left: 12px;
+      top: 14px;
+      z-index: 2;
+      transform: rotate(6deg);
+      box-shadow: -2px 3px 10px rgba(0,0,0,0.5);
+    }
+
     .card {
       width: 58px;
       height: 86px;
@@ -46,11 +75,11 @@
       font-size: 15px;
       box-shadow: 0 4px 8px rgba(0,0,0,0.35);
       cursor: pointer;
-      position: relative;
     }
     .card.red { color: #d32f2f; }
     .card-center { text-align: center; font-size: 22px; line-height: 22px; margin: auto 0; }
     .card-corner { font-size: 12px; line-height: 12px; }
+
     .hand {
       display: flex;
       gap: 8px;
@@ -122,9 +151,9 @@
       render();
     }
 
-    function renderCard(c) {
+    function renderCard(c, extraClass = '') {
       return `
-        <div class="card ${c.isRed ? 'red' : ''}">
+        <div class="card ${c.isRed ? 'red' : ''} ${extraClass}">
           <div class="card-corner">${c.rank}</div>
           <div class="card-center">${c.suit}</div>
           <div class="card-corner" style="text-align: right;">${c.rank}</div>
@@ -142,11 +171,12 @@
         `<div onclick="playerPlayCard(${i})">${renderCard(c)}</div>`
       ).join('');
 
+      // Отрисовка стола: защитная карта перекрывает атакующую
       const tableDiv = document.getElementById('table');
       tableDiv.innerHTML = table.map(p => `
         <div class="card-pair">
-          ${renderCard(p.attack)}
-          ${p.defend ? renderCard(p.defend) : '<div style="height:44px; width:58px; border:1px dashed rgba(255,255,255,0.3); border-radius:6px;"></div>'}
+          ${renderCard(p.attack, 'attack-card')}
+          ${p.defend ? renderCard(p.defend, 'defend-card') : ''}
         </div>
       `).join('');
 
