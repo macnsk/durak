@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Игровой Клуб в Telegram</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <!-- Надежный MQTT-клиент через защищенный WebSocket WSS -->
   <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
   <style>
     * { box-sizing: border-box; user-select: none; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -144,10 +143,19 @@
     .bj-hand-box { display: flex; flex-direction: column; align-items: center; gap: 6px; }
     .cards-row { display: flex; gap: 6px; justify-content: center; }
 
-    /* ПОКЕР */
+    /* ПОКЕР ХОЛДЕМ */
     .poker-board { flex: 1; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 6px 0; }
     .poker-table-zone { background: radial-gradient(circle, #256b3b 0%, #114221 100%); border: 3px solid #b8860b; border-radius: 80px; width: 100%; max-width: 350px; height: 150px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; box-shadow: inset 0 0 20px rgba(0,0,0,0.6); }
     .pot-text { font-size: 14px; font-weight: bold; color: #ffd700; }
+    .poker-timer-bar {
+      font-size: 12px;
+      font-weight: bold;
+      color: #ffeb3b;
+      background: rgba(0,0,0,0.4);
+      padding: 2px 8px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,235,59,0.3);
+    }
     .raise-stepper { display: flex; align-items: center; gap: 3px; flex: 1.1; }
     .raise-stepper-btn { background: #455a64; color: #fff; border: none; padding: 10px 6px; border-radius: 8px; font-weight: bold; font-size: 12px; cursor: pointer; }
 
@@ -216,7 +224,7 @@
       <div class="menu-card-icon">♠️</div>
       <div class="menu-card-info">
         <h3>Техасский Холдем</h3>
-        <p>С ботом или онлайн с другом по коду</p>
+        <p>Таймер 2 мин, авто-раскрытие All-in, Call/Check</p>
       </div>
     </div>
 
@@ -384,6 +392,7 @@
       <button class="back-btn" onclick="pokerExitToMenu()">◀ В меню</button>
       <div class="hud" style="flex:1; margin-left:8px;">
         <div>Ты: <span id="poker-chips">1000</span> 🪙</div>
+        <div class="poker-timer-bar" id="poker-timer">⏳ 02:00</div>
         <div><span id="poker-opp-title">Бот</span>: <span id="poker-bot-chips">1000</span> 🪙</div>
       </div>
     </div>
@@ -406,7 +415,8 @@
     </div>
 
     <div class="controls" id="poker-actions">
-      <button class="game-btn" id="poker-check-btn" style="background:#4caf50; color:#fff;" onclick="pokerAction('check')">Чек</button>
+      <!-- Динамическая кнопка: Чек или Колл (с точной суммой) -->
+      <button class="game-btn" id="poker-call-check-btn" style="background:#4caf50; color:#fff;" onclick="pokerAction('call_check')">Чек</button>
       
       <div class="raise-stepper">
         <button class="raise-stepper-btn" id="poker-minus-btn" onclick="pokerAdjustRaise(-50)">-50</button>
@@ -487,7 +497,6 @@
     const tg = window.Telegram?.WebApp;
     if (tg) { tg.ready(); tg.expand(); }
 
-    /* ГЛОБАЛЬНЫЙ БРОКЕР MQTT OVER WEBSOCKET WSS (РАБОТАЕТ БЕЗ СБОЕВ) */
     const MQTT_BROKER_URL = "wss://broker.emqx.io:8084/mqtt";
     const MQTT_CLIENT_ID = "tg_client_" + Math.random().toString(16).substring(2, 10);
 
@@ -505,6 +514,7 @@
     }
 
     function goToMenu() {
+      pokerClearTimer();
       document.querySelectorAll('.game-view').forEach(v => v.style.display = 'none');
       document.getElementById('menu-screen').style.display = 'flex';
     }
@@ -521,7 +531,7 @@
     }
 
     /* =========================================================================
-       1. ПРАВДА ИЛИ ДЕЙСТВИЕ 18+ (ПОЛНЫЙ СПИСОК 190+ ВОПРОСОВ)
+       1. ПРАВДА ИЛИ ДЕЙСТВИЕ 18+
        ========================================================================= */
     const TOD_TRUTHS_MASTER = [
       "Какой твой самый странный триггер для влечения к человеку?",
@@ -848,7 +858,720 @@
     }
 
     /* =========================================================================
-       2. ДУРАК (ОНЛАЙН ЧЕРЕЗ MQTT WSS)
+       2. ТЕХАССКИЙ ХОЛДЕМ: ТАЙМЕР 2 МИН, АВТО-ALL-IN, CHECK / CALL
+       ========================================================================= */
+    const POKER_SUITS = ['♠', '♥', '♦', '♣'];
+    const POKER_RANKS = ['2','3','4','5','6','7','8','9','10','В','Д','К','Т'];
+    const POKER_VALS  = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'В':11,'Д':12,'К':13,'Т':14 };
+
+    let pokerIsOnline = false, pokerIsHost = false, pokerMqttClient = null, pokerRoomTopic = '', pokerRoomCode = '', pokerIsMyTurn = true;
+    let pokerDeck = [], pokerPlayerHand = [], pokerBotHand = [], pokerBoard = [];
+    let pokerPot = 0, pokerStage = 0;
+    let pokerPlayerChips = 1000, pokerBotChips = 1000;
+    let pokerCurrentRaise = 50;
+
+    // Отслеживание ставок в текущем раунде торгов
+    let pokerPlayerBetInRound = 0, pokerBotBetInRound = 0;
+    let pokerIsAllInMode = false;
+
+    // Таймер на 2 минуты (120 секунд)
+    let pokerTimerInterval = null;
+    let pokerTimeRemaining = 120;
+
+    function pokerPromptLobby() { document.getElementById('poker-lobby-modal').style.display = 'flex'; }
+    function pokerStartSingleplayer() {
+      pokerIsOnline = false;
+      document.getElementById('poker-opp-title').innerText = "Бот";
+      document.getElementById('poker-bot-label').innerText = "Бот";
+      document.getElementById('poker-lobby-modal').style.display = 'none';
+      pokerStartGame();
+    }
+    function pokerOpenOnlineLobby() {
+      document.getElementById('poker-lobby-modal').style.display = 'none';
+      document.getElementById('poker-p2p-initial-view').style.display = 'block';
+      document.getElementById('poker-p2p-waiting-view').style.display = 'none';
+      document.getElementById('poker-p2p-modal').style.display = 'flex';
+    }
+    function pokerCloseOnline() { document.getElementById('poker-p2p-modal').style.display = 'none'; pokerPromptLobby(); }
+    function pokerExitToMenu() {
+      pokerClearTimer();
+      if (pokerMqttClient) { pokerMqttClient.end(); pokerMqttClient = null; }
+      pokerIsOnline = false;
+      goToMenu();
+    }
+
+    function pokerHostRoom() {
+      pokerIsOnline = true; pokerIsHost = true;
+      document.getElementById('poker-opp-title').innerText = "Друг";
+      document.getElementById('poker-bot-label').innerText = "Друг";
+      pokerRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
+      pokerRoomTopic = "poker_room_" + pokerRoomCode;
+
+      document.getElementById('poker-p2p-code-display').innerText = pokerRoomCode;
+      document.getElementById('poker-p2p-initial-view').style.display = 'none';
+      document.getElementById('poker-p2p-waiting-view').style.display = 'block';
+
+      initPokerMqtt(() => {
+        pokerMqttClient.subscribe(pokerRoomTopic + "/guest");
+      });
+    }
+
+    function pokerShareRoomCode() {
+      if (navigator.clipboard) navigator.clipboard.writeText(pokerRoomCode);
+      alert(`Код стола ${pokerRoomCode} скопирован в буфер! Отправь его другу.`);
+    }
+
+    function pokerJoinRoom() {
+      const pin = document.getElementById('poker-p2p-room-input').value.trim();
+      if (pin.length !== 4) return alert("Введите 4-значный код комнаты!");
+      pokerIsOnline = true; pokerIsHost = false;
+      document.getElementById('poker-opp-title').innerText = "Друг";
+      document.getElementById('poker-bot-label').innerText = "Друг";
+      pokerRoomCode = pin;
+      pokerRoomTopic = "poker_room_" + pokerRoomCode;
+
+      document.getElementById('poker-p2p-modal').style.display = 'none';
+      document.getElementById('poker-status').innerText = "Подключение к столу друга...";
+
+      initPokerMqtt(() => {
+        pokerMqttClient.subscribe(pokerRoomTopic + "/host");
+        sendPokerOnline('JOIN_HELLO', {});
+      });
+    }
+
+    function initPokerMqtt(onConnect) {
+      if (pokerMqttClient) pokerMqttClient.end();
+      pokerMqttClient = mqtt.connect(MQTT_BROKER_URL, { clientId: MQTT_CLIENT_ID, clean: true, reconnectPeriod: 2000 });
+
+      pokerMqttClient.on('connect', () => {
+        if (onConnect) onConnect();
+      });
+
+      pokerMqttClient.on('message', (topic, payload) => {
+        try {
+          const msg = JSON.parse(payload.toString());
+          handlePokerOnlineMessage(msg);
+        } catch (e) { console.error("Poker MQTT Parse error:", e); }
+      });
+    }
+
+    function sendPokerOnline(type, payload) {
+      if (pokerMqttClient && pokerMqttClient.connected) {
+        const dest = pokerRoomTopic + (pokerIsHost ? "/host" : "/guest");
+        pokerMqttClient.publish(dest, JSON.stringify({ type, payload }));
+      }
+    }
+
+    function handlePokerOnlineMessage(msg) {
+      if (pokerIsHost && msg.type === 'JOIN_HELLO') {
+        document.getElementById('poker-p2p-modal').style.display = 'none';
+        document.getElementById('poker-status').innerText = "Друг сел за стол! Раздаем карты...";
+        setTimeout(onlinePokerHostNewHand, 800);
+        return;
+      }
+
+      switch (msg.type) {
+        case 'INIT_HAND':
+          pokerPlayerHand = msg.payload.yourHand; pokerBoard = msg.payload.board; pokerPot = msg.payload.pot;
+          pokerPlayerChips = msg.payload.yourChips; pokerBotChips = msg.payload.oppChips; pokerStage = msg.payload.stage;
+          pokerPlayerBetInRound = msg.payload.yourBet; pokerBotBetInRound = msg.payload.oppBet;
+          pokerIsAllInMode = false;
+          pokerIsMyTurn = msg.payload.isYourTurn;
+          document.getElementById('poker-bot-status').innerText = "в игре";
+          document.getElementById('poker-actions').style.display = 'flex';
+          document.getElementById('poker-restart-controls').style.display = 'none';
+          document.getElementById('poker-gameover-controls').style.display = 'none';
+          pokerUpdateCallCheckButton();
+          pokerToggleControls(pokerIsMyTurn);
+          document.getElementById('poker-status').innerText = pokerIsMyTurn ? "Префлоп. Твой ход!" : "Префлоп. Ход друга...";
+          pokerUpdateRaiseBtn();
+          pokerRender(false, true);
+          pokerStartTimer();
+          break;
+
+        case 'ACTION':
+          pokerHandleOpponentAction(msg.payload);
+          break;
+
+        case 'NEXT_STAGE':
+          pokerBoard = msg.payload.board; pokerPot = msg.payload.pot; pokerPlayerChips = msg.payload.yourChips;
+          pokerBotChips = msg.payload.oppChips; pokerStage = msg.payload.stage;
+          pokerPlayerBetInRound = 0; pokerBotBetInRound = 0;
+          pokerIsMyTurn = msg.payload.isYourTurn;
+          pokerUpdateCallCheckButton();
+          pokerToggleControls(pokerIsMyTurn);
+          document.getElementById('poker-status').innerText = msg.payload.status;
+          pokerRender(false, true);
+          pokerStartTimer();
+          break;
+
+        case 'ALL_IN_RUNOUT':
+          // Оба или один в All-in: показ карт и докрутка стола
+          pokerBoard = msg.payload.board;
+          pokerBotHand = msg.payload.oppHand;
+          pokerPot = msg.payload.pot;
+          pokerPlayerChips = msg.payload.yourChips;
+          pokerBotChips = msg.payload.oppChips;
+          pokerIsAllInMode = true;
+          pokerClearTimer();
+          pokerToggleControls(false);
+          document.getElementById('poker-status').innerText = msg.payload.status;
+          pokerRender(true, true);
+          pokerEndHand();
+          break;
+
+        case 'SHOWDOWN':
+          pokerBoard = msg.payload.board; pokerBotHand = msg.payload.oppHand; pokerPot = msg.payload.pot;
+          pokerPlayerChips = msg.payload.yourChips; pokerBotChips = msg.payload.oppChips;
+          pokerClearTimer();
+          pokerRender(true, false);
+          document.getElementById('poker-status').innerText = msg.payload.status;
+          pokerEndHand();
+          break;
+
+        case 'NEW_HAND_REQ':
+          if (pokerIsHost) onlinePokerHostNewHand();
+          break;
+      }
+    }
+
+    /* ТАЙМЕР НА 2 МИНУТЫ (120 СЕКУНД) */
+    function pokerStartTimer() {
+      pokerClearTimer();
+      pokerTimeRemaining = 120;
+      pokerUpdateTimerDisplay();
+
+      pokerTimerInterval = setInterval(() => {
+        pokerTimeRemaining--;
+        pokerUpdateTimerDisplay();
+
+        if (pokerTimeRemaining <= 0) {
+          pokerClearTimer();
+          // Авто-ход по таймауту
+          if (pokerIsMyTurn) {
+            const diff = pokerBotBetInRound - pokerPlayerBetInRound;
+            if (diff <= 0) {
+              pokerAction('call_check'); // Чек, если ставки равны
+            } else {
+              pokerAction('fold'); // Пас, если была ставка
+            }
+          }
+        }
+      }, 1000);
+    }
+
+    function pokerClearTimer() {
+      if (pokerTimerInterval) { clearInterval(pokerTimerInterval); pokerTimerInterval = null; }
+    }
+
+    function pokerUpdateTimerDisplay() {
+      const mins = Math.floor(pokerTimeRemaining / 60);
+      const secs = pokerTimeRemaining % 60;
+      const str = `⏳ ${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      const el = document.getElementById('poker-timer');
+      if (el) el.innerText = str;
+    }
+
+    /* ДИНАМИЧЕСКАЯ КНОПКА CALL / CHECK */
+    function pokerUpdateCallCheckButton() {
+      const btn = document.getElementById('poker-call-check-btn');
+      if (!btn) return;
+
+      const callAmount = pokerBotBetInRound - pokerPlayerBetInRound;
+      if (callAmount > 0) {
+        const actualCall = Math.min(pokerPlayerChips, callAmount);
+        btn.innerText = `Колл ${actualCall}`;
+        btn.style.background = "#29b6f6";
+      } else {
+        btn.innerText = "Чек";
+        btn.style.background = "#4caf50";
+      }
+    }
+
+    function pokerToggleControls(enable) {
+      ['poker-call-check-btn','poker-raise-btn','poker-minus-btn','poker-plus-btn','poker-allin-btn','poker-fold-btn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = !enable;
+      });
+      if (enable) pokerUpdateCallCheckButton();
+    }
+
+    function onlinePokerHostNewHand() {
+      if (pokerPlayerChips <= 0 || pokerBotChips <= 0) return pokerEndHand();
+      pokerDeck = [];
+      for (let s of POKER_SUITS) for (let r of POKER_RANKS) pokerDeck.push({ suit: s, rank: r, isRed: s === '♥' || s === '♦' });
+      pokerDeck.sort(() => Math.random() - 0.5);
+
+      const blind = Math.min(25, pokerPlayerChips, pokerBotChips);
+      pokerPlayerChips -= blind; pokerBotChips -= blind;
+      pokerPlayerBetInRound = blind; pokerBotBetInRound = blind;
+      pokerPot = blind * 2; pokerStage = 0; pokerIsAllInMode = false;
+      pokerCurrentRaise = Math.min(50, pokerPlayerChips);
+
+      pokerPlayerHand = [pokerDeck.pop(), pokerDeck.pop()];
+      const guestHand = [pokerDeck.pop(), pokerDeck.pop()];
+      pokerBotHand = guestHand; pokerBoard = []; pokerIsMyTurn = true;
+
+      sendPokerOnline('INIT_HAND', {
+        yourHand: guestHand, board: [], pot: pokerPot,
+        yourChips: pokerBotChips, oppChips: pokerPlayerChips, stage: 0,
+        yourBet: blind, oppBet: blind, isYourTurn: false
+      });
+
+      document.getElementById('poker-bot-status').innerText = "в игре";
+      document.getElementById('poker-actions').style.display = 'flex';
+      document.getElementById('poker-restart-controls').style.display = 'none';
+      document.getElementById('poker-gameover-controls').style.display = 'none';
+      pokerUpdateCallCheckButton();
+      pokerToggleControls(true);
+      document.getElementById('poker-status').innerText = "Префлоп. Твой ход!";
+      pokerUpdateRaiseBtn();
+      pokerRender(false, true);
+      pokerStartTimer();
+    }
+
+    function pokerHandleOpponentAction(actionData) {
+      const { action, betAmount } = actionData;
+
+      if (action === 'fold') {
+        pokerClearTimer();
+        pokerPlayerChips += pokerPot;
+        document.getElementById('poker-bot-status').innerText = "сбросил (Фолд)";
+        document.getElementById('poker-status').innerText = "Соперник сбросил карты (Пас)! Ты забираешь банк!";
+        pokerEndHand();
+        return;
+      }
+
+      if (action === 'allin') {
+        pokerBotBetInRound += betAmount;
+        pokerPot += betAmount;
+        document.getElementById('poker-status').innerText = "Соперник пошел ALL-IN! Твое решение: Колл или Пас.";
+        pokerIsMyTurn = true;
+        pokerUpdateCallCheckButton();
+        pokerToggleControls(true);
+        pokerRender(false);
+        pokerStartTimer();
+        return;
+      }
+
+      if (action === 'raise') {
+        pokerBotBetInRound += betAmount;
+        pokerPot += betAmount;
+        document.getElementById('poker-status').innerText = `Соперник поднял ставку на +${betAmount}! Кнопка «Колл» активна.`;
+        pokerIsMyTurn = true;
+        pokerUpdateCallCheckButton();
+        pokerToggleControls(true);
+        pokerRender(false);
+        pokerStartTimer();
+        return;
+      }
+
+      if (action === 'call_check') {
+        if (pokerIsHost) {
+          // Если гость уравнял ставку или чекнул -> переход к следующему раунду
+          pokerNextStage();
+        } else {
+          pokerIsMyTurn = true;
+          pokerUpdateCallCheckButton();
+          pokerToggleControls(true);
+          document.getElementById('poker-status').innerText = "Соперник сделал чек. Твой ход!";
+          pokerRender(false);
+          pokerStartTimer();
+        }
+      }
+    }
+
+    function pokerStartGame() { pokerNewHand(); }
+    function pokerResetGame() {
+      pokerPlayerChips = 1000; pokerBotChips = 1000;
+      document.getElementById('poker-gameover-controls').style.display = 'none';
+      if (pokerIsOnline && pokerIsHost) onlinePokerHostNewHand(); else pokerNewHand();
+    }
+
+    function pokerNewHand() {
+      if (pokerIsOnline) {
+        if (pokerIsHost) onlinePokerHostNewHand(); else sendPokerOnline('NEW_HAND_REQ', {});
+        return;
+      }
+
+      if (pokerPlayerChips <= 0) {
+        document.getElementById('poker-status').innerText = "💀 Фишки закончились! Игра окончена.";
+        document.getElementById('poker-actions').style.display = 'none';
+        document.getElementById('poker-restart-controls').style.display = 'none';
+        document.getElementById('poker-gameover-controls').style.display = 'flex';
+        return;
+      }
+      if (pokerBotChips <= 0) {
+        document.getElementById('poker-status').innerText = "🎉 Бот обанкротился! Ты победил!";
+        document.getElementById('poker-actions').style.display = 'none';
+        document.getElementById('poker-restart-controls').style.display = 'none';
+        document.getElementById('poker-gameover-controls').style.display = 'flex';
+        return;
+      }
+
+      pokerDeck = [];
+      for (let s of POKER_SUITS) for (let r of POKER_RANKS) pokerDeck.push({ suit: s, rank: r, isRed: s === '♥' || s === '♦' });
+      pokerDeck.sort(() => Math.random() - 0.5);
+
+      const blind = Math.min(25, pokerPlayerChips, pokerBotChips);
+      pokerPlayerChips -= blind; pokerBotChips -= blind;
+      pokerPlayerBetInRound = blind; pokerBotBetInRound = blind;
+      pokerPot = blind * 2; pokerStage = 0; pokerIsAllInMode = false;
+      pokerCurrentRaise = Math.min(50, pokerPlayerChips);
+
+      pokerPlayerHand = [pokerDeck.pop(), pokerDeck.pop()];
+      pokerBotHand = [pokerDeck.pop(), pokerDeck.pop()];
+      pokerBoard = [];
+
+      document.getElementById('poker-bot-status').innerText = "в игре";
+      document.getElementById('poker-actions').style.display = 'flex';
+      document.getElementById('poker-restart-controls').style.display = 'none';
+      document.getElementById('poker-gameover-controls').style.display = 'none';
+      pokerUpdateCallCheckButton();
+      pokerToggleControls(true);
+      document.getElementById('poker-status').innerText = "Префлоп. Твой ход!";
+      pokerUpdateRaiseBtn();
+      pokerRender(false, true);
+      pokerStartTimer();
+    }
+
+    function pokerAdjustRaise(delta) {
+      pokerCurrentRaise = Math.max(50, Math.min(pokerPlayerChips, pokerCurrentRaise + delta));
+      pokerUpdateRaiseBtn();
+    }
+    function pokerUpdateRaiseBtn() { document.getElementById('poker-raise-btn').innerText = `Рейз ${pokerCurrentRaise}`; }
+
+    function pokerRender(reveal, animate = false) {
+      document.getElementById('poker-chips').innerText = Math.max(0, pokerPlayerChips);
+      document.getElementById('poker-bot-chips').innerText = Math.max(0, pokerBotChips);
+      document.getElementById('poker-pot').innerText = pokerPot;
+
+      document.getElementById('poker-player-cards').innerHTML = pokerPlayerHand.map(c => renderCardHTML(c, '', animate)).join('');
+      document.getElementById('poker-board-cards').innerHTML = pokerBoard.map(c => renderCardHTML(c, '', animate)).join('');
+
+      if (!reveal) document.getElementById('poker-bot-cards').innerHTML = `<div class="card back"></div><div class="card back"></div>`;
+      else document.getElementById('poker-bot-cards').innerHTML = pokerBotHand.map(c => renderCardHTML(c, '', animate)).join('');
+
+      const pScore = evaluatePoker7([...pokerPlayerHand, ...pokerBoard]);
+      document.getElementById('poker-combo-text').innerText = pScore.name;
+    }
+
+    function evaluatePoker7(cards) {
+      if (cards.length < 2) return { score: 0, name: "Карты на руках" };
+      const rankCounts = {}, suitCounts = {};
+      cards.forEach(c => { rankCounts[c.rank] = (rankCounts[c.rank] || 0) + 1; suitCounts[c.suit] = (suitCounts[c.suit] || 0) + 1; });
+      const uniqueVals = [...new Set(cards.map(c => POKER_VALS[c.rank]))].sort((a,b)=>b-a);
+
+      let isStraight = false, straightHigh = 0;
+      for (let i = 0; i <= uniqueVals.length - 5; i++) {
+        if (uniqueVals[i] - uniqueVals[i+4] === 4) { isStraight = true; straightHigh = uniqueVals[i]; break; }
+      }
+
+      let isFlush = false, flushSuit = '';
+      for (let s in suitCounts) { if (suitCounts[s] >= 5) { isFlush = true; flushSuit = s; break; } }
+
+      if (isFlush && isStraight) {
+        const flushCards = cards.filter(c => c.suit === flushSuit).map(c => POKER_VALS[c.rank]).sort((a,b)=>b-a);
+        for (let i = 0; i <= flushCards.length - 5; i++) {
+          if (flushCards[i] - flushCards[i+4] === 4) return { score: 900 + flushCards[i], name: "Стрит-флеш! 🔥" };
+        }
+      }
+
+      const pairs = [], triplets = [], quads = [];
+      for (let r in rankCounts) {
+        if (rankCounts[r] === 4) quads.push(POKER_VALS[r]);
+        if (rankCounts[r] === 3) triplets.push(POKER_VALS[r]);
+        if (rankCounts[r] === 2) pairs.push(POKER_VALS[r]);
+      }
+      pairs.sort((a,b)=>b-a); triplets.sort((a,b)=>b-a);
+
+      if (quads.length > 0) return { score: 800 + quads[0], name: "Каре!" };
+      if (triplets.length > 0 && (triplets.length > 1 || pairs.length > 0)) return { score: 700 + triplets[0], name: "Фулл-хаус!" };
+      if (isFlush) return { score: 600, name: "Флеш!" };
+      if (isStraight) return { score: 500 + straightHigh, name: "Стрит!" };
+      if (triplets.length > 0) return { score: 400 + triplets[0], name: "Сет (тройка)" };
+      if (pairs.length >= 2) return { score: 300 + pairs[0] * 2 + pairs[1], name: `Две пары` };
+      if (pairs.length === 1) return { score: 200 + pairs[0], name: `Пара (${pairs[0]})` };
+
+      return { score: uniqueVals[0] || 0, name: `Старшая карта (${cards[0].rank})` };
+    }
+
+    /* ОСНОВНАЯ ЛОГИКА ДЕЙСТВИЙ В ПОКЕРЕ */
+    function pokerAction(action) {
+      if (pokerIsOnline && !pokerIsMyTurn) return;
+
+      // 1. ФОЛД / ПАС
+      if (action === 'fold') {
+        pokerClearTimer();
+        pokerBotChips += pokerPot;
+        document.getElementById('poker-status').innerText = "Ты сбросил карты (Пас). Банк уходит сопернику.";
+        if (pokerIsOnline) sendPokerOnline('ACTION', { action: 'fold' });
+        pokerEndHand();
+        return;
+      }
+
+      // 2. ЧЕК ИЛИ КОЛЛ (CALL / CHECK)
+      if (action === 'call_check') {
+        const callAmount = pokerBotBetInRound - pokerPlayerBetInRound;
+
+        if (callAmount > 0) {
+          // Это КОЛЛ: уравниваем ставку
+          const actualCall = Math.min(pokerPlayerChips, callAmount);
+          pokerPlayerChips -= actualCall;
+          pokerPlayerBetInRound += actualCall;
+          pokerPot += actualCall;
+
+          // Если коллировали ставку соперника, который уже пошел All-in -> сразу раскрытие!
+          if (pokerBotChips === 0 || pokerPlayerChips === 0) {
+            pokerTriggerAllInShowdown();
+            return;
+          }
+
+          if (pokerIsOnline) {
+            pokerIsMyTurn = false;
+            pokerToggleControls(false);
+            sendPokerOnline('ACTION', { action: 'call_check' });
+            pokerNextStage();
+            return;
+          }
+
+          // Против бота: после колла переходим к следующей улице
+          pokerNextStage();
+          return;
+        } else {
+          // Это ЧЕК (ставки равны)
+          if (pokerIsOnline) {
+            pokerIsMyTurn = false;
+            pokerToggleControls(false);
+            document.getElementById('poker-status').innerText = "Ты сделал чек. Ход друга...";
+            sendPokerOnline('ACTION', { action: 'call_check' });
+            return;
+          }
+
+          // Против бота: бот может ответить чеком или рейзом
+          const botCheckEval = evaluatePoker7([...pokerBotHand, ...pokerBoard]);
+          if (botCheckEval.score >= 300 && Math.random() > 0.4 && pokerBotChips >= 50) {
+            const botRaise = 50;
+            pokerBotChips -= botRaise;
+            pokerBotBetInRound += botRaise;
+            pokerPot += botRaise;
+            document.getElementById('poker-status').innerText = "Бот поднял ставку на +50! Доступны Колл или Пас.";
+            pokerUpdateCallCheckButton();
+            pokerToggleControls(true);
+            pokerRender(false);
+            return;
+          }
+
+          pokerNextStage();
+          return;
+        }
+      }
+
+      // 3. ALL-IN (ВА-БАНК)
+      if (action === 'allin') {
+        const playerAllIn = pokerPlayerChips;
+        pokerPlayerChips = 0;
+        pokerPlayerBetInRound += playerAllIn;
+        pokerPot += playerAllIn;
+
+        if (pokerIsOnline) {
+          pokerIsMyTurn = false;
+          pokerToggleControls(false);
+          document.getElementById('poker-status').innerText = "Ты пошел ALL-IN! Ждем решения друга...";
+          sendPokerOnline('ACTION', { action: 'allin', betAmount: playerAllIn });
+          pokerRender(false);
+          return;
+        }
+
+        // Логика бота на All-in
+        const botEval = evaluatePoker7([...pokerBotHand, ...pokerBoard]);
+        if (botEval.score < 200 && playerAllIn > 200) {
+          // Бот спасовал
+          pokerClearTimer();
+          pokerPlayerChips += pokerPot;
+          document.getElementById('poker-bot-status').innerText = "сбросил (Фолд)";
+          document.getElementById('poker-status').innerText = "Ты пошел ALL-IN! Бот спасовал, банк твой!";
+          pokerEndHand();
+          return;
+        } else {
+          // Бот принял All-in -> сразу раскрытие карт и раздача всех оставшихся карт стола!
+          const botCall = Math.min(pokerBotChips, playerAllIn);
+          pokerBotChips -= botCall;
+          pokerBotBetInRound += botCall;
+          pokerPot += botCall;
+          pokerTriggerAllInShowdown();
+          return;
+        }
+      }
+
+      // 4. РЕЙЗ
+      if (action === 'raise') {
+        const bet = Math.min(pokerPlayerChips, pokerCurrentRaise);
+        pokerPlayerChips -= bet;
+        pokerPlayerBetInRound += bet;
+        pokerPot += bet;
+
+        if (pokerIsOnline) {
+          pokerIsMyTurn = false;
+          pokerToggleControls(false);
+          document.getElementById('poker-status').innerText = `Ты поднял ставку на +${bet}! Ход друга...`;
+          sendPokerOnline('ACTION', { action: 'raise', betAmount: bet });
+          pokerRender(false);
+          return;
+        }
+
+        // Бот принимает решение
+        const botEval = evaluatePoker7([...pokerBotHand, ...pokerBoard]);
+        if (botEval.score < 200 && pokerStage >= 1 && bet >= 100) {
+          pokerClearTimer();
+          document.getElementById('poker-bot-status').innerText = "сбросил (Фолд)";
+          pokerPlayerChips += pokerPot;
+          document.getElementById('poker-status').innerText = "Бот испугался твоего рейза и сбросил!";
+          pokerEndHand();
+          return;
+        }
+        const botMatch = Math.min(pokerBotChips, bet);
+        pokerBotChips -= botMatch;
+        pokerBotBetInRound += botMatch;
+        pokerPot += botMatch;
+        document.getElementById('poker-status').innerText = `Ты поднял +${bet}. Бот ответил коллом!`;
+        pokerNextStage();
+      }
+    }
+
+    /* АВТОМАТИЧЕСКАЯ ДОКРУТКА КАРТ И РАСКРЫТИЕ ПРИ ALL-IN */
+    function pokerTriggerAllInShowdown() {
+      pokerClearTimer();
+      pokerIsAllInMode = true;
+      pokerToggleControls(false);
+
+      // Докручиваем стол до 5 карт
+      while (pokerBoard.length < 5) {
+        pokerBoard.push(pokerDeck.pop());
+      }
+
+      pokerRender(true, true);
+
+      const pScore = evaluatePoker7([...pokerPlayerHand, ...pokerBoard]);
+      const bScore = evaluatePoker7([...pokerBotHand, ...pokerBoard]);
+      let statusText = "";
+
+      if (pScore.score > bScore.score) {
+        pokerPlayerChips += pokerPot;
+        statusText = `🔥 ALL-IN! Победа! У тебя: ${pScore.name} против ${bScore.name}`;
+      } else if (pScore.score === bScore.score) {
+        pokerPlayerChips += Math.floor(pokerPot / 2);
+        pokerBotChips += Math.floor(pokerPot / 2);
+        statusText = `🔥 ALL-IN! Ничья! Банк поделен (${pScore.name})`;
+      } else {
+        pokerBotChips += pokerPot;
+        statusText = `🔥 ALL-IN! ${pokerIsOnline ? "Друг" : "Бот"} выиграл с ${bScore.name}`;
+      }
+
+      document.getElementById('poker-status').innerText = statusText;
+
+      if (pokerIsOnline && pokerIsHost) {
+        sendPokerOnline('ALL_IN_RUNOUT', {
+          board: pokerBoard,
+          oppHand: pokerPlayerHand,
+          pot: 0,
+          yourChips: pokerBotChips,
+          oppChips: pokerPlayerChips,
+          status: (pScore.score < bScore.score) ? `Победа! У тебя ${bScore.name}` : `Соперник выиграл с ${pScore.name}`
+        });
+      }
+
+      pokerEndHand();
+    }
+
+    function pokerNextStage() {
+      pokerStage++;
+      pokerPlayerBetInRound = 0;
+      pokerBotBetInRound = 0;
+      let stageName = "";
+
+      if (pokerStage === 1) {
+        if (pokerIsOnline && !pokerIsHost) return;
+        pokerBoard.push(pokerDeck.pop(), pokerDeck.pop(), pokerDeck.pop());
+        stageName = "Флоп! Делай ход.";
+      } else if (pokerStage === 2) {
+        if (pokerIsOnline && !pokerIsHost) return;
+        pokerBoard.push(pokerDeck.pop());
+        stageName = "Тёрн! Делай ход.";
+      } else if (pokerStage === 3) {
+        if (pokerIsOnline && !pokerIsHost) return;
+        pokerBoard.push(pokerDeck.pop());
+        stageName = "Ривер! Финальный раунд ставок.";
+      } else {
+        pokerShowdown();
+        return;
+      }
+
+      if (pokerIsOnline && pokerIsHost) {
+        pokerIsMyTurn = true;
+        pokerUpdateCallCheckButton();
+        pokerToggleControls(true);
+        sendPokerOnline('NEXT_STAGE', {
+          board: pokerBoard, pot: pokerPot, yourChips: pokerBotChips, oppChips: pokerPlayerChips,
+          stage: pokerStage, isYourTurn: false, status: stageName + " Ход друга."
+        });
+      }
+
+      document.getElementById('poker-status').innerText = stageName;
+      pokerUpdateCallCheckButton();
+      pokerRender(false, true);
+      pokerStartTimer();
+    }
+
+    function pokerShowdown() {
+      pokerClearTimer();
+      pokerRender(true, false);
+      const pScore = evaluatePoker7([...pokerPlayerHand, ...pokerBoard]);
+      const bScore = evaluatePoker7([...pokerBotHand, ...pokerBoard]);
+      let resultText = "";
+
+      if (pScore.score > bScore.score) {
+        pokerPlayerChips += pokerPot;
+        resultText = `Победа! У тебя: ${pScore.name} против ${bScore.name}`;
+      } else if (pScore.score === bScore.score) {
+        pokerPlayerChips += Math.floor(pokerPot / 2); pokerBotChips += Math.floor(pokerPot / 2);
+        resultText = `Ничья! Банк поделен (${pScore.name})`;
+      } else {
+        pokerBotChips += pokerPot;
+        resultText = `${pokerIsOnline ? "Друг" : "Бот"} выиграл! У него: ${bScore.name}`;
+      }
+
+      document.getElementById('poker-status').innerText = resultText;
+
+      if (pokerIsOnline && pokerIsHost) {
+        sendPokerOnline('SHOWDOWN', {
+          board: pokerBoard, oppHand: pokerPlayerHand, pot: 0,
+          yourChips: pokerBotChips, oppChips: pokerPlayerChips,
+          status: (pScore.score < bScore.score) ? `Победа друга! У него ${bScore.name}` : `Ты выиграл! У тебя ${bScore.name}`
+        });
+      }
+      pokerEndHand();
+    }
+
+    function pokerEndHand() {
+      pokerClearTimer();
+      document.getElementById('poker-actions').style.display = 'none';
+      pokerRender(true, false);
+      if (pokerPlayerChips <= 0) {
+        document.getElementById('poker-status').innerText += " 💀 Ты проиграл все фишки!";
+        document.getElementById('poker-restart-controls').style.display = 'none';
+        document.getElementById('poker-gameover-controls').style.display = 'flex';
+      } else if (pokerBotChips <= 0) {
+        document.getElementById('poker-status').innerText += ` 🎉 ${pokerIsOnline ? "Друг" : "Бот"} полностью обанкрочен!`;
+        document.getElementById('poker-restart-controls').style.display = 'none';
+        document.getElementById('poker-gameover-controls').style.display = 'flex';
+      } else {
+        document.getElementById('poker-restart-controls').style.display = 'flex';
+      }
+    }
+
+    /* =========================================================================
+       3. ДУРАК
        ========================================================================= */
     const DURAK_SUITS = ['♠', '♥', '♦', '♣'];
     const DURAK_RANKS = ['6', '7', '8', '9', '10', 'В', 'Д', 'К', 'Т'];
@@ -913,7 +1636,6 @@
 
       initDurakMqtt(() => {
         durakMqttClient.subscribe(durakRoomTopic + "/host");
-        // Отправляем сигнал хосту о входе
         sendDurakOnline('JOIN_HELLO', {});
       });
     }
@@ -923,7 +1645,6 @@
       durakMqttClient = mqtt.connect(MQTT_BROKER_URL, { clientId: MQTT_CLIENT_ID, clean: true, reconnectPeriod: 2000 });
 
       durakMqttClient.on('connect', () => {
-        console.log("MQTT подключен успешно!");
         if (onConnect) onConnect();
       });
 
@@ -932,10 +1653,6 @@
           const msg = JSON.parse(payload.toString());
           handleDurakOnlineMessage(msg);
         } catch (e) { console.error("MQTT Parse error:", e); }
-      });
-
-      durakMqttClient.on('error', (err) => {
-        console.error("MQTT error:", err);
       });
     }
 
@@ -1341,469 +2058,6 @@
         else if (durakBotHand.length === 0) { alert("💀 Бот вышел! Ты остался в дураках."); goToMenu(); return true; }
       }
       return false;
-    }
-
-    /* =========================================================================
-       3. ПОКЕР ТЕХАССКИЙ ХОЛДЕМ (ОНЛАЙН ЧЕРЕЗ MQTT WSS)
-       ========================================================================= */
-    const POKER_SUITS = ['♠', '♥', '♦', '♣'];
-    const POKER_RANKS = ['2','3','4','5','6','7','8','9','10','В','Д','К','Т'];
-    const POKER_VALS  = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'В':11,'Д':12,'К':13,'Т':14 };
-
-    let pokerIsOnline = false, pokerIsHost = false, pokerMqttClient = null, pokerRoomTopic = '', pokerRoomCode = '', pokerIsMyTurn = true;
-    let pokerDeck = [], pokerPlayerHand = [], pokerBotHand = [], pokerBoard = [];
-    let pokerPot = 0, pokerStage = 0;
-    let pokerPlayerChips = 1000, pokerBotChips = 1000;
-    let pokerCurrentRaise = 50;
-
-    function pokerPromptLobby() { document.getElementById('poker-lobby-modal').style.display = 'flex'; }
-    function pokerStartSingleplayer() {
-      pokerIsOnline = false;
-      document.getElementById('poker-opp-title').innerText = "Бот";
-      document.getElementById('poker-bot-label').innerText = "Бот";
-      document.getElementById('poker-lobby-modal').style.display = 'none';
-      pokerStartGame();
-    }
-    function pokerOpenOnlineLobby() {
-      document.getElementById('poker-lobby-modal').style.display = 'none';
-      document.getElementById('poker-p2p-initial-view').style.display = 'block';
-      document.getElementById('poker-p2p-waiting-view').style.display = 'none';
-      document.getElementById('poker-p2p-modal').style.display = 'flex';
-    }
-    function pokerCloseOnline() { document.getElementById('poker-p2p-modal').style.display = 'none'; pokerPromptLobby(); }
-    function pokerExitToMenu() {
-      if (pokerMqttClient) { pokerMqttClient.end(); pokerMqttClient = null; }
-      pokerIsOnline = false;
-      goToMenu();
-    }
-
-    function pokerHostRoom() {
-      pokerIsOnline = true; pokerIsHost = true;
-      document.getElementById('poker-opp-title').innerText = "Друг";
-      document.getElementById('poker-bot-label').innerText = "Друг";
-      pokerRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
-      pokerRoomTopic = "poker_room_" + pokerRoomCode;
-
-      document.getElementById('poker-p2p-code-display').innerText = pokerRoomCode;
-      document.getElementById('poker-p2p-initial-view').style.display = 'none';
-      document.getElementById('poker-p2p-waiting-view').style.display = 'block';
-
-      initPokerMqtt(() => {
-        pokerMqttClient.subscribe(pokerRoomTopic + "/guest");
-      });
-    }
-
-    function pokerShareRoomCode() {
-      if (navigator.clipboard) navigator.clipboard.writeText(pokerRoomCode);
-      alert(`Код стола ${pokerRoomCode} скопирован в буфер! Отправь его другу.`);
-    }
-
-    function pokerJoinRoom() {
-      const pin = document.getElementById('poker-p2p-room-input').value.trim();
-      if (pin.length !== 4) return alert("Введите 4-значный код комнаты!");
-      pokerIsOnline = true; pokerIsHost = false;
-      document.getElementById('poker-opp-title').innerText = "Друг";
-      document.getElementById('poker-bot-label').innerText = "Друг";
-      pokerRoomCode = pin;
-      pokerRoomTopic = "poker_room_" + pokerRoomCode;
-
-      document.getElementById('poker-p2p-modal').style.display = 'none';
-      document.getElementById('poker-status').innerText = "Подключение к столу друга...";
-
-      initPokerMqtt(() => {
-        pokerMqttClient.subscribe(pokerRoomTopic + "/host");
-        sendPokerOnline('JOIN_HELLO', {});
-      });
-    }
-
-    function initPokerMqtt(onConnect) {
-      if (pokerMqttClient) pokerMqttClient.end();
-      pokerMqttClient = mqtt.connect(MQTT_BROKER_URL, { clientId: MQTT_CLIENT_ID, clean: true, reconnectPeriod: 2000 });
-
-      pokerMqttClient.on('connect', () => {
-        if (onConnect) onConnect();
-      });
-
-      pokerMqttClient.on('message', (topic, payload) => {
-        try {
-          const msg = JSON.parse(payload.toString());
-          handlePokerOnlineMessage(msg);
-        } catch (e) { console.error("Poker MQTT Parse error:", e); }
-      });
-    }
-
-    function sendPokerOnline(type, payload) {
-      if (pokerMqttClient && pokerMqttClient.connected) {
-        const dest = pokerRoomTopic + (pokerIsHost ? "/host" : "/guest");
-        pokerMqttClient.publish(dest, JSON.stringify({ type, payload }));
-      }
-    }
-
-    function handlePokerOnlineMessage(msg) {
-      if (pokerIsHost && msg.type === 'JOIN_HELLO') {
-        document.getElementById('poker-p2p-modal').style.display = 'none';
-        document.getElementById('poker-status').innerText = "Друг сел за стол! Раздаем карты...";
-        setTimeout(onlinePokerHostNewHand, 800);
-        return;
-      }
-
-      switch (msg.type) {
-        case 'INIT_HAND':
-          pokerPlayerHand = msg.payload.yourHand; pokerBoard = msg.payload.board; pokerPot = msg.payload.pot;
-          pokerPlayerChips = msg.payload.yourChips; pokerBotChips = msg.payload.oppChips; pokerStage = msg.payload.stage;
-          pokerIsMyTurn = msg.payload.isYourTurn;
-          document.getElementById('poker-bot-status').innerText = "в игре";
-          document.getElementById('poker-actions').style.display = 'flex';
-          document.getElementById('poker-restart-controls').style.display = 'none';
-          document.getElementById('poker-gameover-controls').style.display = 'none';
-          pokerToggleControls(pokerIsMyTurn);
-          document.getElementById('poker-status').innerText = pokerIsMyTurn ? "Префлоп. Твой ход!" : "Префлоп. Ход друга...";
-          pokerUpdateRaiseBtn();
-          pokerRender(false, true);
-          break;
-        case 'ACTION': pokerHandleOpponentAction(msg.payload); break;
-        case 'NEXT_STAGE':
-          pokerBoard = msg.payload.board; pokerPot = msg.payload.pot; pokerPlayerChips = msg.payload.yourChips;
-          pokerBotChips = msg.payload.oppChips; pokerStage = msg.payload.stage; pokerIsMyTurn = msg.payload.isYourTurn;
-          pokerToggleControls(pokerIsMyTurn);
-          document.getElementById('poker-status').innerText = msg.payload.status;
-          pokerRender(false, true);
-          break;
-        case 'SHOWDOWN':
-          pokerBoard = msg.payload.board; pokerBotHand = msg.payload.oppHand; pokerPot = msg.payload.pot;
-          pokerPlayerChips = msg.payload.yourChips; pokerBotChips = msg.payload.oppChips;
-          pokerRender(true, false);
-          document.getElementById('poker-status').innerText = msg.payload.status;
-          pokerEndHand();
-          break;
-        case 'NEW_HAND_REQ': if (pokerIsHost) onlinePokerHostNewHand(); break;
-      }
-    }
-
-    function pokerToggleControls(enable) {
-      ['poker-check-btn','poker-raise-btn','poker-minus-btn','poker-plus-btn','poker-allin-btn','poker-fold-btn'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.disabled = !enable;
-      });
-    }
-
-    function onlinePokerHostNewHand() {
-      if (pokerPlayerChips <= 0 || pokerBotChips <= 0) return pokerEndHand();
-      pokerDeck = [];
-      for (let s of POKER_SUITS) for (let r of POKER_RANKS) pokerDeck.push({ suit: s, rank: r, isRed: s === '♥' || s === '♦' });
-      pokerDeck.sort(() => Math.random() - 0.5);
-
-      const blind = Math.min(25, pokerPlayerChips, pokerBotChips);
-      pokerPlayerChips -= blind; pokerBotChips -= blind; pokerPot = blind * 2; pokerStage = 0;
-      pokerCurrentRaise = Math.min(50, pokerPlayerChips);
-
-      pokerPlayerHand = [pokerDeck.pop(), pokerDeck.pop()];
-      const guestHand = [pokerDeck.pop(), pokerDeck.pop()];
-      pokerBotHand = guestHand; pokerBoard = []; pokerIsMyTurn = true;
-
-      sendPokerOnline('INIT_HAND', {
-        yourHand: guestHand, board: [], pot: pokerPot,
-        yourChips: pokerBotChips, oppChips: pokerPlayerChips, stage: 0, isYourTurn: false
-      });
-
-      document.getElementById('poker-bot-status').innerText = "в игре";
-      document.getElementById('poker-actions').style.display = 'flex';
-      document.getElementById('poker-restart-controls').style.display = 'none';
-      document.getElementById('poker-gameover-controls').style.display = 'none';
-      pokerToggleControls(true);
-      document.getElementById('poker-status').innerText = "Префлоп. Твой ход!";
-      pokerUpdateRaiseBtn();
-      pokerRender(false, true);
-    }
-
-    function pokerHandleOpponentAction(actionData) {
-      const { action, betAmount } = actionData;
-      if (action === 'fold') {
-        pokerPlayerChips += pokerPot;
-        document.getElementById('poker-bot-status').innerText = "сбросил (Фолд)";
-        document.getElementById('poker-status').innerText = "Друг спасовал! Ты забираешь банк!";
-        pokerEndHand();
-        return;
-      }
-      if (action === 'allin') {
-        pokerBotChips -= betAmount; pokerPot += betAmount;
-        document.getElementById('poker-status').innerText = "Друг пошел ALL-IN! Ответь или спасуй.";
-        pokerIsMyTurn = true; pokerToggleControls(true); pokerRender(false);
-        return;
-      }
-      if (action === 'raise') {
-        pokerBotChips -= betAmount; pokerPot += betAmount;
-        document.getElementById('poker-status').innerText = `Друг поднял на +${betAmount}! Твой ход.`;
-        pokerIsMyTurn = true; pokerToggleControls(true); pokerRender(false);
-        return;
-      }
-      if (action === 'check') {
-        if (pokerIsHost) pokerNextStage();
-        else { pokerIsMyTurn = true; pokerToggleControls(true); document.getElementById('poker-status').innerText = "Друг сделал чек. Твой ход!"; pokerRender(false); }
-      }
-    }
-
-    function pokerStartGame() { pokerNewHand(); }
-    function pokerResetGame() {
-      pokerPlayerChips = 1000; pokerBotChips = 1000;
-      document.getElementById('poker-gameover-controls').style.display = 'none';
-      if (pokerIsOnline && pokerIsHost) onlinePokerHostNewHand(); else pokerNewHand();
-    }
-
-    function pokerNewHand() {
-      if (pokerIsOnline) {
-        if (pokerIsHost) onlinePokerHostNewHand(); else sendPokerOnline('NEW_HAND_REQ', {});
-        return;
-      }
-
-      if (pokerPlayerChips <= 0) {
-        document.getElementById('poker-status').innerText = "💀 Фишки закончились! Игра окончена.";
-        document.getElementById('poker-actions').style.display = 'none';
-        document.getElementById('poker-restart-controls').style.display = 'none';
-        document.getElementById('poker-gameover-controls').style.display = 'flex';
-        return;
-      }
-      if (pokerBotChips <= 0) {
-        document.getElementById('poker-status').innerText = "🎉 Бот обанкротился! Ты победил!";
-        document.getElementById('poker-actions').style.display = 'none';
-        document.getElementById('poker-restart-controls').style.display = 'none';
-        document.getElementById('poker-gameover-controls').style.display = 'flex';
-        return;
-      }
-
-      pokerDeck = [];
-      for (let s of POKER_SUITS) for (let r of POKER_RANKS) pokerDeck.push({ suit: s, rank: r, isRed: s === '♥' || s === '♦' });
-      pokerDeck.sort(() => Math.random() - 0.5);
-
-      const blind = Math.min(25, pokerPlayerChips, pokerBotChips);
-      pokerPlayerChips -= blind; pokerBotChips -= blind; pokerPot = blind * 2; pokerStage = 0;
-      pokerCurrentRaise = Math.min(50, pokerPlayerChips);
-
-      pokerPlayerHand = [pokerDeck.pop(), pokerDeck.pop()];
-      pokerBotHand = [pokerDeck.pop(), pokerDeck.pop()];
-      pokerBoard = [];
-
-      document.getElementById('poker-bot-status').innerText = "в игре";
-      document.getElementById('poker-actions').style.display = 'flex';
-      document.getElementById('poker-restart-controls').style.display = 'none';
-      document.getElementById('poker-gameover-controls').style.display = 'none';
-      pokerToggleControls(true);
-      document.getElementById('poker-status').innerText = "Префлоп. Твой ход!";
-      pokerUpdateRaiseBtn();
-      pokerRender(false, true);
-    }
-
-    function pokerAdjustRaise(delta) {
-      pokerCurrentRaise = Math.max(50, Math.min(pokerPlayerChips, pokerCurrentRaise + delta));
-      pokerUpdateRaiseBtn();
-    }
-    function pokerUpdateRaiseBtn() { document.getElementById('poker-raise-btn').innerText = `Рейз ${pokerCurrentRaise}`; }
-
-    function pokerRender(reveal, animate = false) {
-      document.getElementById('poker-chips').innerText = Math.max(0, pokerPlayerChips);
-      document.getElementById('poker-bot-chips').innerText = Math.max(0, pokerBotChips);
-      document.getElementById('poker-pot').innerText = pokerPot;
-
-      document.getElementById('poker-player-cards').innerHTML = pokerPlayerHand.map(c => renderCardHTML(c, '', animate)).join('');
-      document.getElementById('poker-board-cards').innerHTML = pokerBoard.map(c => renderCardHTML(c, '', animate)).join('');
-
-      if (!reveal) document.getElementById('poker-bot-cards').innerHTML = `<div class="card back"></div><div class="card back"></div>`;
-      else document.getElementById('poker-bot-cards').innerHTML = pokerBotHand.map(c => renderCardHTML(c, '', animate)).join('');
-
-      const pScore = evaluatePoker7([...pokerPlayerHand, ...pokerBoard]);
-      document.getElementById('poker-combo-text').innerText = pScore.name;
-    }
-
-    function evaluatePoker7(cards) {
-      if (cards.length < 2) return { score: 0, name: "Карты на руках" };
-      const rankCounts = {}, suitCounts = {};
-      cards.forEach(c => { rankCounts[c.rank] = (rankCounts[c.rank] || 0) + 1; suitCounts[c.suit] = (suitCounts[c.suit] || 0) + 1; });
-      const uniqueVals = [...new Set(cards.map(c => POKER_VALS[c.rank]))].sort((a,b)=>b-a);
-
-      let isStraight = false, straightHigh = 0;
-      for (let i = 0; i <= uniqueVals.length - 5; i++) {
-        if (uniqueVals[i] - uniqueVals[i+4] === 4) { isStraight = true; straightHigh = uniqueVals[i]; break; }
-      }
-
-      let isFlush = false, flushSuit = '';
-      for (let s in suitCounts) { if (suitCounts[s] >= 5) { isFlush = true; flushSuit = s; break; } }
-
-      if (isFlush && isStraight) {
-        const flushCards = cards.filter(c => c.suit === flushSuit).map(c => POKER_VALS[c.rank]).sort((a,b)=>b-a);
-        for (let i = 0; i <= flushCards.length - 5; i++) {
-          if (flushCards[i] - flushCards[i+4] === 4) return { score: 900 + flushCards[i], name: "Стрит-флеш! 🔥" };
-        }
-      }
-
-      const pairs = [], triplets = [], quads = [];
-      for (let r in rankCounts) {
-        if (rankCounts[r] === 4) quads.push(POKER_VALS[r]);
-        if (rankCounts[r] === 3) triplets.push(POKER_VALS[r]);
-        if (rankCounts[r] === 2) pairs.push(POKER_VALS[r]);
-      }
-      pairs.sort((a,b)=>b-a); triplets.sort((a,b)=>b-a);
-
-      if (quads.length > 0) return { score: 800 + quads[0], name: "Каре!" };
-      if (triplets.length > 0 && (triplets.length > 1 || pairs.length > 0)) return { score: 700 + triplets[0], name: "Фулл-хаус!" };
-      if (isFlush) return { score: 600, name: "Флеш!" };
-      if (isStraight) return { score: 500 + straightHigh, name: "Стрит!" };
-      if (triplets.length > 0) return { score: 400 + triplets[0], name: "Сет (тройка)" };
-      if (pairs.length >= 2) return { score: 300 + pairs[0] * 2 + pairs[1], name: `Две пары` };
-      if (pairs.length === 1) return { score: 200 + pairs[0], name: `Пара (${pairs[0]})` };
-
-      return { score: uniqueVals[0] || 0, name: `Старшая карта (${cards[0].rank})` };
-    }
-
-    function pokerAction(action) {
-      if (pokerIsOnline && !pokerIsMyTurn) return;
-
-      if (action === 'fold') {
-        pokerBotChips += pokerPot;
-        document.getElementById('poker-status').innerText = "Ты сбросил карты. Банк уходит сопернику.";
-        if (pokerIsOnline) sendPokerOnline('ACTION', { action: 'fold' });
-        pokerEndHand();
-        return;
-      }
-
-      if (action === 'allin') {
-        const playerAllIn = pokerPlayerChips;
-        pokerPlayerChips = 0; pokerPot += playerAllIn;
-
-        if (pokerIsOnline) {
-          pokerIsMyTurn = false; pokerToggleControls(false);
-          document.getElementById('poker-status').innerText = "Ты пошел ALL-IN! Ждем друга...";
-          sendPokerOnline('ACTION', { action: 'allin', betAmount: playerAllIn });
-          pokerRender(false);
-          return;
-        }
-
-        const botEval = evaluatePoker7([...pokerBotHand, ...pokerBoard]);
-        if (botEval.score < 200 && playerAllIn > 250) {
-          document.getElementById('poker-bot-status').innerText = "сбросил (Фолд)";
-          pokerPlayerChips += pokerPot;
-          document.getElementById('poker-status').innerText = "Ты пошел ALL-IN! Бот сбросил карты, банк твой!";
-          pokerEndHand();
-          return;
-        } else {
-          const botCall = Math.min(pokerBotChips, playerAllIn);
-          pokerBotChips -= botCall; pokerPot += botCall;
-          document.getElementById('poker-status').innerText = "Ты пошел ALL-IN! Бот принял вызов!";
-          while (pokerBoard.length < 5) pokerBoard.push(pokerDeck.pop());
-          pokerShowdown();
-          return;
-        }
-      }
-
-      if (action === 'raise') {
-        const bet = Math.min(pokerPlayerChips, pokerCurrentRaise);
-        pokerPlayerChips -= bet; pokerPot += bet;
-
-        if (pokerIsOnline) {
-          pokerIsMyTurn = false; pokerToggleControls(false);
-          document.getElementById('poker-status').innerText = `Ты поднял ставку на +${bet}! Ход друга...`;
-          sendPokerOnline('ACTION', { action: 'raise', betAmount: bet });
-          pokerRender(false);
-          return;
-        }
-
-        const botEval = evaluatePoker7([...pokerBotHand, ...pokerBoard]);
-        if (botEval.score < 200 && pokerStage >= 1 && bet >= 100) {
-          document.getElementById('poker-bot-status').innerText = "сбросил (Фолд)";
-          pokerPlayerChips += pokerPot;
-          document.getElementById('poker-status').innerText = "Бот испугался твоего рейза и сбросил!";
-          pokerEndHand();
-          return;
-        }
-        const botMatch = Math.min(pokerBotChips, bet);
-        pokerBotChips -= botMatch; pokerPot += botMatch;
-        document.getElementById('poker-status').innerText = `Ты поднял +${bet}. Бот ответил коллом!`;
-      }
-
-      if (action === 'check' && pokerIsOnline) {
-        pokerIsMyTurn = false; pokerToggleControls(false);
-        document.getElementById('poker-status').innerText = "Ты сделал чек. Ход друга...";
-        sendPokerOnline('ACTION', { action: 'check' });
-        return;
-      }
-
-      pokerNextStage();
-    }
-
-    function pokerNextStage() {
-      pokerStage++;
-      let stageName = "";
-      if (pokerStage === 1) {
-        if (pokerIsOnline && !pokerIsHost) return;
-        pokerBoard.push(pokerDeck.pop(), pokerDeck.pop(), pokerDeck.pop());
-        stageName = "Флоп! Делай ход.";
-      } else if (pokerStage === 2) {
-        if (pokerIsOnline && !pokerIsHost) return;
-        pokerBoard.push(pokerDeck.pop());
-        stageName = "Тёрн! Делай ход.";
-      } else if (pokerStage === 3) {
-        if (pokerIsOnline && !pokerIsHost) return;
-        pokerBoard.push(pokerDeck.pop());
-        stageName = "Ривер! Финальный раунд.";
-      } else {
-        pokerShowdown();
-        return;
-      }
-
-      if (pokerIsOnline && pokerIsHost) {
-        pokerIsMyTurn = true; pokerToggleControls(true);
-        sendPokerOnline('NEXT_STAGE', {
-          board: pokerBoard, pot: pokerPot, yourChips: pokerBotChips, oppChips: pokerPlayerChips,
-          stage: pokerStage, isYourTurn: false, status: stageName + " Ход друга."
-        });
-      }
-
-      document.getElementById('poker-status').innerText = stageName;
-      pokerRender(false, true);
-    }
-
-    function pokerShowdown() {
-      pokerRender(true, false);
-      const pScore = evaluatePoker7([...pokerPlayerHand, ...pokerBoard]);
-      const bScore = evaluatePoker7([...pokerBotHand, ...pokerBoard]);
-      let resultText = "";
-
-      if (pScore.score > bScore.score) {
-        pokerPlayerChips += pokerPot;
-        resultText = `Победа! У тебя: ${pScore.name} против ${bScore.name}`;
-      } else if (pScore.score === bScore.score) {
-        pokerPlayerChips += Math.floor(pokerPot / 2); pokerBotChips += Math.floor(pokerPot / 2);
-        resultText = `Ничья! Банк поделен (${pScore.name})`;
-      } else {
-        pokerBotChips += pokerPot;
-        resultText = `${pokerIsOnline ? "Друг" : "Бот"} выиграл! У него: ${bScore.name}`;
-      }
-
-      document.getElementById('poker-status').innerText = resultText;
-
-      if (pokerIsOnline && pokerIsHost) {
-        sendPokerOnline('SHOWDOWN', {
-          board: pokerBoard, oppHand: pokerPlayerHand, pot: 0,
-          yourChips: pokerBotChips, oppChips: pokerPlayerChips,
-          status: (pScore.score < bScore.score) ? `Победа друга! У него ${bScore.name}` : `Ты выиграл! У тебя ${bScore.name}`
-        });
-      }
-      pokerEndHand();
-    }
-
-    function pokerEndHand() {
-      document.getElementById('poker-actions').style.display = 'none';
-      pokerRender(true, false);
-      if (pokerPlayerChips <= 0) {
-        document.getElementById('poker-status').innerText += " 💀 Ты проиграл все фишки!";
-        document.getElementById('poker-restart-controls').style.display = 'none';
-        document.getElementById('poker-gameover-controls').style.display = 'flex';
-      } else if (pokerBotChips <= 0) {
-        document.getElementById('poker-status').innerText += ` 🎉 ${pokerIsOnline ? "Друг" : "Бот"} полностью обанкрочен!`;
-        document.getElementById('poker-restart-controls').style.display = 'none';
-        document.getElementById('poker-gameover-controls').style.display = 'flex';
-      } else {
-        document.getElementById('poker-restart-controls').style.display = 'flex';
-      }
     }
 
     /* =========================================================================
