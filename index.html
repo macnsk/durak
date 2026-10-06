@@ -21,13 +21,12 @@
     .hud { font-size: 15px; display: flex; justify-content: space-between; align-items: center; font-weight: 500; }
     .status-msg { text-align: center; font-weight: bold; background: rgba(0,0,0,0.35); padding: 8px; border-radius: 8px; margin: 6px 0; font-size: 14px; }
     
-    /* Игровой стол */
     .table-zone {
       flex: 1;
       display: flex;
       justify-content: center;
       align-items: center;
-      gap: 20px;
+      gap: 16px;
       margin: 6px 0;
       border: 2px dashed rgba(255,255,255,0.25);
       border-radius: 12px;
@@ -35,15 +34,13 @@
       padding: 10px;
     }
 
-    /* Слот под пару карт */
     .card-pair {
       position: relative;
-      width: 62px;
-      height: 98px;
+      width: 60px;
+      height: 94px;
       flex-shrink: 0;
     }
 
-    /* Атакующая карта лежит снизу */
     .card-pair .attack-card {
       position: absolute;
       left: 0;
@@ -51,13 +48,12 @@
       z-index: 1;
     }
 
-    /* Отбивающая карта перекрывает атакующую со сдвигом и наклоном */
     .card-pair .defend-card {
       position: absolute;
-      left: 12px;
-      top: 14px;
+      left: 10px;
+      top: 12px;
       z-index: 2;
-      transform: rotate(6deg);
+      transform: rotate(5deg);
       box-shadow: -2px 3px 10px rgba(0,0,0,0.5);
     }
 
@@ -75,10 +71,16 @@
       font-size: 15px;
       box-shadow: 0 4px 8px rgba(0,0,0,0.35);
       cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform 0.15s ease;
     }
     .card.red { color: #d32f2f; }
+    .card.trump {
+      border: 2px solid #ff1744 !important;
+      box-shadow: 0 0 10px rgba(255, 23, 68, 0.7);
+    }
     .card-center { text-align: center; font-size: 22px; line-height: 22px; margin: auto 0; }
-    .card-corner { font-size: 12px; line-height: 12px; }
+    .card-corner { font-size: 13px; line-height: 13px; }
 
     .hand {
       display: flex;
@@ -100,16 +102,55 @@
       cursor: pointer;
     }
     button:disabled { opacity: 0.45; cursor: default; }
+
+    /* Модальное окно выбора режима */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 99;
+      padding: 20px;
+    }
+    .modal-box {
+      background: #1e3a24;
+      border: 2px solid #fbc02d;
+      border-radius: 14px;
+      padding: 24px;
+      width: 100%;
+      max-width: 320px;
+      text-align: center;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+    }
+    .modal-title { font-size: 20px; margin-bottom: 20px; font-weight: bold; }
+    .modal-btn {
+      width: 100%;
+      margin-bottom: 12px;
+      padding: 14px;
+      font-size: 16px;
+    }
   </style>
 </head>
 <body>
+
+  <!-- Меню выбора режима -->
+  <div class="modal-overlay" id="start-modal">
+    <div class="modal-box">
+      <div class="modal-title">Выберите режим игры</div>
+      <button class="modal-btn" onclick="startGame('podkidnoy')">🃏 Подкидной дурак</button>
+      <button class="modal-btn" onclick="startGame('perevodnoy')">🔄 Переводной дурак</button>
+    </div>
+  </div>
 
   <div class="hud">
     <div>Бот: <span id="bot-count">6</span> карт</div>
     <div>Колода: <span id="deck-count">24</span> | Козырь: <span id="trump-val"></span></div>
   </div>
 
-  <div class="status-msg" id="status">Твой ход! Нажми на карту внизу.</div>
+  <div class="status-msg" id="status">Выберите карту для хода</div>
 
   <div class="table-zone" id="table"></div>
 
@@ -125,13 +166,20 @@
     if (tg) { tg.ready(); tg.expand(); }
 
     const SUITS = ['♠', '♥', '♦', '♣'];
-    const RANKS = ['6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
-    const VALUES = { '6':6, '7':7, '8':8, '9':9, '10':10, 'J':11, 'Q':12, 'K':13, 'A':14 };
+    const RANKS = ['6', '7', '8', '9', '10', 'В', 'Д', 'К', 'Т'];
+    const VALUES = { '6':6, '7':7, '8':8, '9':9, '10':10, 'В':11, 'Д':12, 'К':13, 'Т':14 };
 
+    let gameMode = 'podkidnoy';
     let deck = [], playerHand = [], botHand = [];
     let trumpSuit = '', trumpCard = null;
     let table = [];
     let isPlayerTurn = true;
+
+    function startGame(mode) {
+      gameMode = mode;
+      document.getElementById('start-modal').style.display = 'none';
+      initGame();
+    }
 
     function initGame() {
       deck = [];
@@ -148,12 +196,26 @@
       playerHand = deck.splice(0, 6);
       botHand = deck.splice(0, 6);
 
+      sortHand(playerHand);
       render();
     }
 
+    // Сортировка: по рангу, козыри всегда строго в конце
+    function sortHand(hand) {
+      hand.sort((a, b) => {
+        const isATrump = a.suit === trumpSuit;
+        const isBTrump = b.suit === trumpSuit;
+
+        if (isATrump && !isBTrump) return 1;
+        if (!isATrump && isBTrump) return -1;
+        return VALUES[a.rank] - VALUES[b.rank];
+      });
+    }
+
     function renderCard(c, extraClass = '') {
+      const isTrump = c.suit === trumpSuit;
       return `
-        <div class="card ${c.isRed ? 'red' : ''} ${extraClass}">
+        <div class="card ${c.isRed ? 'red' : ''} ${isTrump ? 'trump' : ''} ${extraClass}">
           <div class="card-corner">${c.rank}</div>
           <div class="card-center">${c.suit}</div>
           <div class="card-corner" style="text-align: right;">${c.rank}</div>
@@ -171,7 +233,6 @@
         `<div onclick="playerPlayCard(${i})">${renderCard(c)}</div>`
       ).join('');
 
-      // Отрисовка стола: защитная карта перекрывает атакующую
       const tableDiv = document.getElementById('table');
       tableDiv.innerHTML = table.map(p => `
         <div class="card-pair">
@@ -197,7 +258,9 @@
 
     function playerPlayCard(idx) {
       const card = playerHand[idx];
+
       if (isPlayerTurn) {
+        // Подкидывание игроком
         if (table.length === 0 || table.some(p => p.attack.rank === card.rank || p.defend?.rank === card.rank)) {
           playerHand.splice(idx, 1);
           table.push({ attack: card, defend: null });
@@ -206,6 +269,19 @@
           setTimeout(botDefend, 700);
         }
       } else {
+        // Переводной режим: если стол не покрыт и карта совпадает по рангу
+        const hasUncovered = table.every(p => !p.defend);
+        if (gameMode === 'perevodnoy' && hasUncovered && table.length > 0 && table[0].attack.rank === card.rank) {
+          playerHand.splice(idx, 1);
+          table.push({ attack: card, defend: null });
+          isPlayerTurn = true;
+          document.getElementById('status').innerText = "Переведено! Теперь ходит бот.";
+          render();
+          setTimeout(botDefend, 800);
+          return;
+        }
+
+        // Защита картой
         const undefended = table.find(p => !p.defend);
         if (undefended && canBeat(card, undefended.attack)) {
           playerHand.splice(idx, 1);
@@ -217,13 +293,27 @@
     }
 
     function botDefend() {
+      // Бот проверяет перевод (если включен переводной режим)
+      const hasUncovered = table.every(p => !p.defend);
+      if (gameMode === 'perevodnoy' && hasUncovered && table.length > 0) {
+        const transferCardIdx = botHand.findIndex(c => c.rank === table[0].attack.rank);
+        if (transferCardIdx !== -1) {
+          const card = botHand.splice(transferCardIdx, 1)[0];
+          table.push({ attack: card, defend: null });
+          isPlayerTurn = false;
+          document.getElementById('status').innerText = `Бот перевел карту: ${card.rank}${card.suit}! Отбивайся.`;
+          render();
+          return;
+        }
+      }
+
       const undefended = table.find(p => !p.defend);
       if (!undefended) return;
 
       const beatCardIdx = botHand.findIndex(c => canBeat(c, undefended.attack));
       if (beatCardIdx !== -1) {
         undefended.defend = botHand.splice(beatCardIdx, 1)[0];
-        document.getElementById('status').innerText = "Бот отбился. Можешь подкинуть еще или нажать «Бито».";
+        document.getElementById('status').innerText = "Бот отбился. Можешь подкинуть или нажать «Бито».";
       } else {
         document.getElementById('status').innerText = "Бот забирает карты.";
         setTimeout(() => {
@@ -231,7 +321,7 @@
           table = [];
           refillHands();
           render();
-          document.getElementById('status').innerText = "Твой ход! Выбери карту.";
+          document.getElementById('status').innerText = "Твой ход!";
         }, 1100);
       }
       render();
@@ -259,16 +349,15 @@
       if (botHand.length === 0) return;
       const card = botHand.shift();
       table.push({ attack: card, defend: null });
-      document.getElementById('status').innerText = `Бот ходит: ${card.rank}${card.suit}. Выбери карту для защиты!`;
+      document.getElementById('status').innerText = `Бот ходит: ${card.rank}${card.suit}. Защищайся!`;
       render();
     }
 
     function refillHands() {
       while (playerHand.length < 6 && deck.length > 0) playerHand.push(deck.shift());
       while (botHand.length < 6 && deck.length > 0) botHand.push(deck.shift());
+      sortHand(playerHand);
     }
-
-    initGame();
   </script>
 </body>
 </html>
