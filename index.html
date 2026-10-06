@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Игровой Клуб в Telegram</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <!-- Надежный MQTT-клиент через защищенный WebSocket WSS -->
+  <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
   <style>
     * { box-sizing: border-box; user-select: none; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body {
@@ -308,7 +309,7 @@
     <div class="modal-box">
       <div style="font-size:18px; margin-bottom:14px; font-weight:bold;">Режим игры в «Дурака»</div>
       <button class="game-btn" style="width:100%; margin-bottom:10px;" onclick="durakStartSingleplayerChoice()">🤖 Одиночная (против бота)</button>
-      <button class="game-btn" style="width:100%; background:#29b6f6; color:#fff;" onclick="durakOpenP2PLobby()">👥 С другом (P2P онлайн)</button>
+      <button class="game-btn" style="width:100%; background:#29b6f6; color:#fff;" onclick="durakOpenOnlineLobby()">👥 С другом (онлайн по коду)</button>
     </div>
   </div>
 
@@ -317,17 +318,17 @@
       <div style="font-size:18px; margin-bottom:12px; font-weight:bold;">Комната с другом (Дурак)</div>
       <div id="p2p-initial-view">
         <button class="game-btn" style="width:100%; margin-bottom:12px;" onclick="durakHostRoom()">👑 Создать комнату</button>
-        <div style="margin-bottom:6px; font-size:13px; color:#bbb;">или введите код друга:</div>
-        <input type="text" id="p2p-room-input" placeholder="Например: 4821" maxlength="6" style="width:100%; padding:10px; font-size:18px; text-align:center; border-radius:8px; border:1px solid #ffd54f; margin-bottom:8px; color:#000;">
+        <div style="margin-bottom:6px; font-size:13px; color:#bbb;">или введите 4-значный код друга:</div>
+        <input type="text" id="p2p-room-input" placeholder="Например: 4821" maxlength="4" style="width:100%; padding:10px; font-size:20px; text-align:center; font-weight:bold; letter-spacing:3px; border-radius:8px; border:1px solid #ffd54f; margin-bottom:8px; color:#000;">
         <button class="game-btn" style="width:100%; background:#4caf50; color:#fff;" onclick="durakJoinRoom()">Присоединиться</button>
       </div>
       <div id="p2p-waiting-view" style="display:none;">
         <div style="font-size:14px; margin-bottom:6px;">Код вашей комнаты:</div>
-        <div id="p2p-room-code-display" style="font-size:32px; font-weight:bold; letter-spacing:4px; color:#ffd54f; margin-bottom:12px;">....</div>
-        <div style="font-size:13px; color:#aaa; margin-bottom:14px;">Отправьте этот код другу. Ждём подключения...</div>
+        <div id="p2p-room-code-display" style="font-size:34px; font-weight:bold; letter-spacing:4px; color:#ffd54f; margin-bottom:12px;">....</div>
+        <div style="font-size:13px; color:#aaa; margin-bottom:14px;">Отправьте код другу в Telegram. Ждём подключения...</div>
         <button class="game-btn" style="width:100%; margin-bottom:8px;" onclick="durakShareRoomCode()">📋 Скопировать код</button>
       </div>
-      <button class="game-btn" style="width:100%; background:#757575; color:#fff; margin-top:10px;" onclick="durakCloseP2P()">Назад</button>
+      <button class="game-btn" style="width:100%; background:#757575; color:#fff; margin-top:10px;" onclick="durakCloseOnline()">Назад</button>
     </div>
   </div>
 
@@ -430,7 +431,7 @@
     <div class="modal-box">
       <div style="font-size:18px; margin-bottom:14px; font-weight:bold;">Режим Холдема</div>
       <button class="game-btn" style="width:100%; margin-bottom:10px;" onclick="pokerStartSingleplayer()">🤖 Одиночная (против бота)</button>
-      <button class="game-btn" style="width:100%; background:#29b6f6; color:#fff;" onclick="pokerOpenP2PLobby()">👥 С другом (P2P онлайн)</button>
+      <button class="game-btn" style="width:100%; background:#29b6f6; color:#fff;" onclick="pokerOpenOnlineLobby()">👥 С другом (онлайн по коду)</button>
     </div>
   </div>
 
@@ -439,17 +440,17 @@
       <div style="font-size:18px; margin-bottom:12px; font-weight:bold;">Комната с другом (Покер)</div>
       <div id="poker-p2p-initial-view">
         <button class="game-btn" style="width:100%; margin-bottom:12px;" onclick="pokerHostRoom()">👑 Создать комнату</button>
-        <div style="margin-bottom:6px; font-size:13px; color:#bbb;">или введите код друга:</div>
-        <input type="text" id="poker-p2p-room-input" placeholder="Например: 7391" maxlength="6" style="width:100%; padding:10px; font-size:18px; text-align:center; border-radius:8px; border:1px solid #ffd54f; margin-bottom:8px; color:#000;">
+        <div style="margin-bottom:6px; font-size:13px; color:#bbb;">или введите 4-значный код друга:</div>
+        <input type="text" id="poker-p2p-room-input" placeholder="Например: 7391" maxlength="4" style="width:100%; padding:10px; font-size:20px; text-align:center; font-weight:bold; letter-spacing:3px; border-radius:8px; border:1px solid #ffd54f; margin-bottom:8px; color:#000;">
         <button class="game-btn" style="width:100%; background:#4caf50; color:#fff;" onclick="pokerJoinRoom()">Присоединиться</button>
       </div>
       <div id="poker-p2p-waiting-view" style="display:none;">
         <div style="font-size:14px; margin-bottom:6px;">Код комнаты в покере:</div>
-        <div id="poker-p2p-code-display" style="font-size:32px; font-weight:bold; letter-spacing:4px; color:#ffd54f; margin-bottom:12px;">....</div>
-        <div style="font-size:13px; color:#aaa; margin-bottom:14px;">Отправьте этот код другу. Ждём за столом...</div>
+        <div id="poker-p2p-code-display" style="font-size:34px; font-weight:bold; letter-spacing:4px; color:#ffd54f; margin-bottom:12px;">....</div>
+        <div style="font-size:13px; color:#aaa; margin-bottom:14px;">Отправьте код другу. Ждём за столом...</div>
         <button class="game-btn" style="width:100%; margin-bottom:8px;" onclick="pokerShareRoomCode()">📋 Скопировать код</button>
       </div>
-      <button class="game-btn" style="width:100%; background:#757575; color:#fff; margin-top:10px;" onclick="pokerCloseP2P()">Назад</button>
+      <button class="game-btn" style="width:100%; background:#757575; color:#fff; margin-top:10px;" onclick="pokerCloseOnline()">Назад</button>
     </div>
   </div>
 
@@ -486,17 +487,9 @@
     const tg = window.Telegram?.WebApp;
     if (tg) { tg.ready(); tg.expand(); }
 
-    /* НАДЕЖНАЯ КОНФИГУРАЦИЯ СЕТИ WEBRTC С ПУБЛИЧНЫМИ STUN-СЕРВЕРАМИ */
-    const PEER_CONFIG = {
-      config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' },
-          { urls: 'stun:stun.services.mozilla.com' }
-        ]
-      }
-    };
+    /* ГЛОБАЛЬНЫЙ БРОКЕР MQTT OVER WEBSOCKET WSS (РАБОТАЕТ БЕЗ СБОЕВ) */
+    const MQTT_BROKER_URL = "wss://broker.emqx.io:8084/mqtt";
+    const MQTT_CLIENT_ID = "tg_client_" + Math.random().toString(16).substring(2, 10);
 
     function openGame(gameKey) {
       document.getElementById('menu-screen').style.display = 'none';
@@ -855,114 +848,112 @@
     }
 
     /* =========================================================================
-       2. ДУРАК (WEBRTC STUN + СИНХРОНИЗАЦИЯ С ДРУГОМ)
+       2. ДУРАК (ОНЛАЙН ЧЕРЕЗ MQTT WSS)
        ========================================================================= */
     const DURAK_SUITS = ['♠', '♥', '♦', '♣'];
     const DURAK_RANKS = ['6', '7', '8', '9', '10', 'В', 'Д', 'К', 'Т'];
     const DURAK_VALUES = { '6':6, '7':7, '8':8, '9':9, '10':10, 'В':11, 'Д':12, 'К':13, 'Т':14 };
 
-    let durakMode = 'podkidnoy', durakIsP2P = false, durakIsHost = false, durakPeer = null, durakConn = null, durakRoomId = '';
+    let durakMode = 'podkidnoy', durakIsOnline = false, durakIsHost = false;
+    let durakMqttClient = null, durakRoomTopic = '', durakRoomCode = '';
     let durakDeck = [], durakPlayerHand = [], durakBotHand = [], durakTrumpCard = null, durakTrumpSuit = '', durakTable = [];
     let durakIsPlayerAttacking = true, durakIsBotThinking = false, durakPendingAction = null;
 
     function durakPromptLobby() { document.getElementById('durak-lobby-modal').style.display = 'flex'; }
     function durakStartSingleplayerChoice() {
-      durakIsP2P = false;
+      durakIsOnline = false;
       document.getElementById('durak-opp-name').innerText = "Бот";
       document.getElementById('durak-lobby-modal').style.display = 'none';
       document.getElementById('durak-start-modal').style.display = 'flex';
     }
-    function durakOpenP2PLobby() {
+    function durakOpenOnlineLobby() {
       document.getElementById('durak-lobby-modal').style.display = 'none';
       document.getElementById('p2p-initial-view').style.display = 'block';
       document.getElementById('p2p-waiting-view').style.display = 'none';
       document.getElementById('durak-p2p-modal').style.display = 'flex';
     }
-    function durakCloseP2P() { document.getElementById('durak-p2p-modal').style.display = 'none'; durakPromptLobby(); }
+    function durakCloseOnline() { document.getElementById('durak-p2p-modal').style.display = 'none'; durakPromptLobby(); }
+
     function durakExitToMenu() {
-      if (durakConn) { durakConn.close(); durakConn = null; }
-      if (durakPeer) { durakPeer.destroy(); durakPeer = null; }
-      durakIsP2P = false;
+      if (durakMqttClient) { durakMqttClient.end(); durakMqttClient = null; }
+      durakIsOnline = false;
       goToMenu();
     }
 
     function durakHostRoom() {
-      durakIsP2P = true; durakIsHost = true;
+      durakIsOnline = true; durakIsHost = true;
       document.getElementById('durak-opp-name').innerText = "Друг";
-      const pin = Math.floor(1000 + Math.random() * 9000);
-      durakRoomId = 'durak-' + pin;
+      durakRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
+      durakRoomTopic = "durak_room_" + durakRoomCode;
 
-      document.getElementById('p2p-room-code-display').innerText = pin;
+      document.getElementById('p2p-room-code-display').innerText = durakRoomCode;
       document.getElementById('p2p-initial-view').style.display = 'none';
       document.getElementById('p2p-waiting-view').style.display = 'block';
 
-      if (durakPeer) durakPeer.destroy();
-      durakPeer = new Peer(durakRoomId, PEER_CONFIG);
-
-      durakPeer.on('connection', (c) => {
-        durakConn = c;
-        setupP2PConnection(() => {
-          document.getElementById('durak-p2p-modal').style.display = 'none';
-          document.getElementById('durak-status').innerText = "Друг подключился! Начинаем...";
-          p2pHostStartGame();
-        });
-      });
-
-      durakPeer.on('error', (err) => {
-        alert("Ошибка сети PeerJS: " + err.type + ". Попробуйте создать снова.");
+      initDurakMqtt(() => {
+        durakMqttClient.subscribe(durakRoomTopic + "/guest");
       });
     }
 
     function durakShareRoomCode() {
-      const code = document.getElementById('p2p-room-code-display').innerText;
-      if (navigator.clipboard) navigator.clipboard.writeText(code);
-      alert(`Код ${code} скопирован в буфер! Отправь его другу.`);
+      if (navigator.clipboard) navigator.clipboard.writeText(durakRoomCode);
+      alert(`Код ${durakRoomCode} скопирован в буфер! Отправь его другу.`);
     }
 
     function durakJoinRoom() {
       const pin = document.getElementById('p2p-room-input').value.trim();
-      if (!pin) return alert("Введите 4-значный код комнаты!");
-      durakIsP2P = true; durakIsHost = false;
+      if (pin.length !== 4) return alert("Введите 4-значный код комнаты!");
+      durakIsOnline = true; durakIsHost = false;
       document.getElementById('durak-opp-name').innerText = "Друг";
+      durakRoomCode = pin;
+      durakRoomTopic = "durak_room_" + durakRoomCode;
 
-      document.getElementById('durak-status').innerText = "Подключение к комнате...";
       document.getElementById('durak-p2p-modal').style.display = 'none';
+      document.getElementById('durak-status').innerText = "Подключение к комнате друга...";
 
-      if (durakPeer) durakPeer.destroy();
-      durakPeer = new Peer(PEER_CONFIG);
-
-      durakPeer.on('open', () => {
-        durakConn = durakPeer.connect('durak-' + pin, { reliable: true });
-        setupP2PConnection(() => {
-          document.getElementById('durak-status').innerText = "Связь с другом установлена! Ждем раздачи...";
-        });
-      });
-
-      durakPeer.on('error', (err) => {
-        alert("Не удалось найти комнату: " + err.type);
-        durakOpenP2PLobby();
+      initDurakMqtt(() => {
+        durakMqttClient.subscribe(durakRoomTopic + "/host");
+        // Отправляем сигнал хосту о входе
+        sendDurakOnline('JOIN_HELLO', {});
       });
     }
 
-    function setupP2PConnection(onOpenCallback) {
-      durakConn.on('open', () => {
-        console.log("WebRTC канал Дурака открыт!");
-        if (onOpenCallback) onOpenCallback();
+    function initDurakMqtt(onConnect) {
+      if (durakMqttClient) durakMqttClient.end();
+      durakMqttClient = mqtt.connect(MQTT_BROKER_URL, { clientId: MQTT_CLIENT_ID, clean: true, reconnectPeriod: 2000 });
+
+      durakMqttClient.on('connect', () => {
+        console.log("MQTT подключен успешно!");
+        if (onConnect) onConnect();
       });
-      durakConn.on('data', (d) => handleP2PMessage(d));
-      durakConn.on('close', () => {
-        alert("Соперник отключился от игры!");
-        durakExitToMenu();
+
+      durakMqttClient.on('message', (topic, payload) => {
+        try {
+          const msg = JSON.parse(payload.toString());
+          handleDurakOnlineMessage(msg);
+        } catch (e) { console.error("MQTT Parse error:", e); }
+      });
+
+      durakMqttClient.on('error', (err) => {
+        console.error("MQTT error:", err);
       });
     }
 
-    function sendP2P(type, payload) {
-      if (durakConn && durakConn.open) {
-        durakConn.send({ type, payload });
+    function sendDurakOnline(type, payload) {
+      if (durakMqttClient && durakMqttClient.connected) {
+        const dest = durakRoomTopic + (durakIsHost ? "/host" : "/guest");
+        durakMqttClient.publish(dest, JSON.stringify({ type, payload }));
       }
     }
 
-    function handleP2PMessage(msg) {
+    function handleDurakOnlineMessage(msg) {
+      if (durakIsHost && msg.type === 'JOIN_HELLO') {
+        document.getElementById('durak-p2p-modal').style.display = 'none';
+        document.getElementById('durak-status').innerText = "Друг подключился! Раздаем карты...";
+        setTimeout(onlineHostStartGame, 800);
+        return;
+      }
+
       switch (msg.type) {
         case 'INIT_STATE':
           durakPlayerHand = msg.payload.yourHand; durakTrumpCard = msg.payload.trumpCard; durakTrumpSuit = durakTrumpCard.suit;
@@ -993,7 +984,7 @@
       }
     }
 
-    function p2pHostStartGame() {
+    function onlineHostStartGame() {
       durakDeck = [];
       for (let s of DURAK_SUITS) for (let r of DURAK_RANKS) durakDeck.push({ suit: s, rank: r, isRed: s === '♥' || s === '♦' });
       durakDeck.sort(() => Math.random() - 0.5);
@@ -1010,7 +1001,7 @@
       else if (gTrumps.length > 0) durakIsPlayerAttacking = false;
       else durakIsPlayerAttacking = true;
 
-      sendP2P('INIT_STATE', {
+      sendDurakOnline('INIT_STATE', {
         yourHand: guestHand, trumpCard: durakTrumpCard, deckCount: durakDeck.length,
         oppCount: durakPlayerHand.length, isYourTurn: !durakIsPlayerAttacking
       });
@@ -1165,8 +1156,8 @@
           durakTable.push({ attack: card, defend: null });
           durakRender();
 
-          if (durakIsP2P) {
-            sendP2P('PLAY_CARD', { pair: { attack: card, defend: null } });
+          if (durakIsOnline) {
+            sendDurakOnline('PLAY_CARD', { pair: { attack: card, defend: null } });
             document.getElementById('durak-status').innerText = "Ты подкинул карту! Ждем ход друга...";
           } else durakTriggerBotDefense();
         }
@@ -1204,7 +1195,7 @@
       durakIsPlayerAttacking = true;
       document.getElementById('durak-status').innerText = `Переведено ${card.rank}${card.suit}! Отбивается соперник.`;
       durakRender();
-      if (durakIsP2P) sendP2P('TRANSFER_CARD', { pair: { attack: card, defend: null } });
+      if (durakIsOnline) sendDurakOnline('TRANSFER_CARD', { pair: { attack: card, defend: null } });
       else durakTriggerBotDefense();
     }
 
@@ -1212,10 +1203,10 @@
       const card = durakPlayerHand.splice(handIdx, 1)[0];
       durakTable[targetIdx].defend = card;
       durakRender();
-      if (durakIsP2P) sendP2P('DEFEND_CARD', { targetIdx, card });
+      if (durakIsOnline) sendDurakOnline('DEFEND_CARD', { targetIdx, card });
       if (durakTable.every(p => p.defend)) {
         document.getElementById('durak-status').innerText = "Всё отбито! Нажми «Бито» или жди подкидывания.";
-        if (!durakIsP2P) setTimeout(durakBotToss, 800);
+        if (!durakIsOnline) setTimeout(durakBotToss, 800);
       } else {
         document.getElementById('durak-status').innerText = `Карта отбита! Осталось: ${durakTable.filter(p=>!p.defend).length}`;
       }
@@ -1297,8 +1288,8 @@
 
       if (durakIsPlayerAttacking || (!durakIsPlayerAttacking && !hasUncovered && durakTable.length > 0)) {
         durakTable = [];
-        if (durakIsP2P) {
-          sendP2P('ACTION_BITO', { isYourTurnNext: !durakIsPlayerAttacking });
+        if (durakIsOnline) {
+          sendDurakOnline('ACTION_BITO', { isYourTurnNext: !durakIsPlayerAttacking });
           durakIsPlayerAttacking = !durakIsPlayerAttacking;
           document.getElementById('durak-status').innerText = durakIsPlayerAttacking ? "Бито! Твой ход." : "Бито! Ход друга.";
           durakRender();
@@ -1312,8 +1303,8 @@
       } else {
         durakTable.forEach(p => { durakPlayerHand.push(p.attack); if (p.defend) durakPlayerHand.push(p.defend); });
         durakTable = []; durakSortHand(durakPlayerHand);
-        if (durakIsP2P) {
-          sendP2P('ACTION_TAKE', { oppCount: durakPlayerHand.length });
+        if (durakIsOnline) {
+          sendDurakOnline('ACTION_TAKE', { oppCount: durakPlayerHand.length });
           durakIsPlayerAttacking = false; document.getElementById('durak-status').innerText = "Ты взял карты со стола. Ход друга."; durakRender();
         } else {
           durakRefill(durakBotHand);
@@ -1353,13 +1344,13 @@
     }
 
     /* =========================================================================
-       3. ПОКЕР ТЕХАССКИЙ ХОЛДЕМ (WEBRTC STUN + СИНХРОНИЗАЦИЯ)
+       3. ПОКЕР ТЕХАССКИЙ ХОЛДЕМ (ОНЛАЙН ЧЕРЕЗ MQTT WSS)
        ========================================================================= */
     const POKER_SUITS = ['♠', '♥', '♦', '♣'];
     const POKER_RANKS = ['2','3','4','5','6','7','8','9','10','В','Д','К','Т'];
     const POKER_VALS  = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'В':11,'Д':12,'К':13,'Т':14 };
 
-    let pokerIsP2P = false, pokerIsHost = false, pokerPeer = null, pokerConn = null, pokerRoomId = '', pokerIsMyTurn = true;
+    let pokerIsOnline = false, pokerIsHost = false, pokerMqttClient = null, pokerRoomTopic = '', pokerRoomCode = '', pokerIsMyTurn = true;
     let pokerDeck = [], pokerPlayerHand = [], pokerBotHand = [], pokerBoard = [];
     let pokerPot = 0, pokerStage = 0;
     let pokerPlayerChips = 1000, pokerBotChips = 1000;
@@ -1367,105 +1358,95 @@
 
     function pokerPromptLobby() { document.getElementById('poker-lobby-modal').style.display = 'flex'; }
     function pokerStartSingleplayer() {
-      pokerIsP2P = false;
+      pokerIsOnline = false;
       document.getElementById('poker-opp-title').innerText = "Бот";
       document.getElementById('poker-bot-label').innerText = "Бот";
       document.getElementById('poker-lobby-modal').style.display = 'none';
       pokerStartGame();
     }
-    function pokerOpenP2PLobby() {
+    function pokerOpenOnlineLobby() {
       document.getElementById('poker-lobby-modal').style.display = 'none';
       document.getElementById('poker-p2p-initial-view').style.display = 'block';
       document.getElementById('poker-p2p-waiting-view').style.display = 'none';
       document.getElementById('poker-p2p-modal').style.display = 'flex';
     }
-    function pokerCloseP2P() { document.getElementById('poker-p2p-modal').style.display = 'none'; pokerPromptLobby(); }
+    function pokerCloseOnline() { document.getElementById('poker-p2p-modal').style.display = 'none'; pokerPromptLobby(); }
     function pokerExitToMenu() {
-      if (pokerConn) { pokerConn.close(); pokerConn = null; }
-      if (pokerPeer) { pokerPeer.destroy(); pokerPeer = null; }
-      pokerIsP2P = false;
+      if (pokerMqttClient) { pokerMqttClient.end(); pokerMqttClient = null; }
+      pokerIsOnline = false;
       goToMenu();
     }
 
     function pokerHostRoom() {
-      pokerIsP2P = true; pokerIsHost = true;
+      pokerIsOnline = true; pokerIsHost = true;
       document.getElementById('poker-opp-title').innerText = "Друг";
       document.getElementById('poker-bot-label').innerText = "Друг";
-      const pin = Math.floor(1000 + Math.random() * 9000);
-      pokerRoomId = 'poker-' + pin;
+      pokerRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
+      pokerRoomTopic = "poker_room_" + pokerRoomCode;
 
-      document.getElementById('poker-p2p-code-display').innerText = pin;
+      document.getElementById('poker-p2p-code-display').innerText = pokerRoomCode;
       document.getElementById('poker-p2p-initial-view').style.display = 'none';
       document.getElementById('poker-p2p-waiting-view').style.display = 'block';
 
-      if (pokerPeer) pokerPeer.destroy();
-      pokerPeer = new Peer(pokerRoomId, PEER_CONFIG);
-
-      pokerPeer.on('connection', (c) => {
-        pokerConn = c;
-        setupPokerP2PConnection(() => {
-          document.getElementById('poker-p2p-modal').style.display = 'none';
-          document.getElementById('poker-status').innerText = "Друг сел за стол! Начинаем...";
-          p2pPokerHostNewHand();
-        });
-      });
-
-      pokerPeer.on('error', (err) => {
-        alert("Ошибка сети PeerJS: " + err.type);
+      initPokerMqtt(() => {
+        pokerMqttClient.subscribe(pokerRoomTopic + "/guest");
       });
     }
 
     function pokerShareRoomCode() {
-      const code = document.getElementById('poker-p2p-code-display').innerText;
-      if (navigator.clipboard) navigator.clipboard.writeText(code);
-      alert(`Код стола ${code} скопирован в буфер! Отправь его другу.`);
+      if (navigator.clipboard) navigator.clipboard.writeText(pokerRoomCode);
+      alert(`Код стола ${pokerRoomCode} скопирован в буфер! Отправь его другу.`);
     }
 
     function pokerJoinRoom() {
       const pin = document.getElementById('poker-p2p-room-input').value.trim();
-      if (!pin) return alert("Введите 4-значный код комнаты!");
-      pokerIsP2P = true; pokerIsHost = false;
+      if (pin.length !== 4) return alert("Введите 4-значный код комнаты!");
+      pokerIsOnline = true; pokerIsHost = false;
       document.getElementById('poker-opp-title').innerText = "Друг";
       document.getElementById('poker-bot-label').innerText = "Друг";
+      pokerRoomCode = pin;
+      pokerRoomTopic = "poker_room_" + pokerRoomCode;
 
-      document.getElementById('poker-status').innerText = "Подключение к столу друга...";
       document.getElementById('poker-p2p-modal').style.display = 'none';
+      document.getElementById('poker-status').innerText = "Подключение к столу друга...";
 
-      if (pokerPeer) pokerPeer.destroy();
-      pokerPeer = new Peer(PEER_CONFIG);
-
-      pokerPeer.on('open', () => {
-        pokerConn = pokerPeer.connect('poker-' + pin, { reliable: true });
-        setupPokerP2PConnection(() => {
-          document.getElementById('poker-status').innerText = "Связь за столом установлена! Ждем раздачи...";
-        });
-      });
-
-      pokerPeer.on('error', (err) => {
-        alert("Не удалось найти комнату в покере: " + err.type);
-        pokerOpenP2PLobby();
+      initPokerMqtt(() => {
+        pokerMqttClient.subscribe(pokerRoomTopic + "/host");
+        sendPokerOnline('JOIN_HELLO', {});
       });
     }
 
-    function setupPokerP2PConnection(onOpenCallback) {
-      pokerConn.on('open', () => {
-        console.log("WebRTC канал Покера открыт!");
-        if (onOpenCallback) onOpenCallback();
+    function initPokerMqtt(onConnect) {
+      if (pokerMqttClient) pokerMqttClient.end();
+      pokerMqttClient = mqtt.connect(MQTT_BROKER_URL, { clientId: MQTT_CLIENT_ID, clean: true, reconnectPeriod: 2000 });
+
+      pokerMqttClient.on('connect', () => {
+        if (onConnect) onConnect();
       });
-      pokerConn.on('data', (d) => handlePokerP2PMessage(d));
-      pokerConn.on('close', () => {
-        alert("Друг покинул стол в покере!");
-        pokerExitToMenu();
+
+      pokerMqttClient.on('message', (topic, payload) => {
+        try {
+          const msg = JSON.parse(payload.toString());
+          handlePokerOnlineMessage(msg);
+        } catch (e) { console.error("Poker MQTT Parse error:", e); }
       });
     }
 
-    function sendPokerP2P(type, payload) {
-      if (pokerConn && pokerConn.open) {
-        pokerConn.send({ type, payload });
+    function sendPokerOnline(type, payload) {
+      if (pokerMqttClient && pokerMqttClient.connected) {
+        const dest = pokerRoomTopic + (pokerIsHost ? "/host" : "/guest");
+        pokerMqttClient.publish(dest, JSON.stringify({ type, payload }));
       }
     }
 
-    function handlePokerP2PMessage(msg) {
+    function handlePokerOnlineMessage(msg) {
+      if (pokerIsHost && msg.type === 'JOIN_HELLO') {
+        document.getElementById('poker-p2p-modal').style.display = 'none';
+        document.getElementById('poker-status').innerText = "Друг сел за стол! Раздаем карты...";
+        setTimeout(onlinePokerHostNewHand, 800);
+        return;
+      }
+
       switch (msg.type) {
         case 'INIT_HAND':
           pokerPlayerHand = msg.payload.yourHand; pokerBoard = msg.payload.board; pokerPot = msg.payload.pot;
@@ -1495,7 +1476,7 @@
           document.getElementById('poker-status').innerText = msg.payload.status;
           pokerEndHand();
           break;
-        case 'NEW_HAND_REQ': if (pokerIsHost) p2pPokerHostNewHand(); break;
+        case 'NEW_HAND_REQ': if (pokerIsHost) onlinePokerHostNewHand(); break;
       }
     }
 
@@ -1506,7 +1487,7 @@
       });
     }
 
-    function p2pPokerHostNewHand() {
+    function onlinePokerHostNewHand() {
       if (pokerPlayerChips <= 0 || pokerBotChips <= 0) return pokerEndHand();
       pokerDeck = [];
       for (let s of POKER_SUITS) for (let r of POKER_RANKS) pokerDeck.push({ suit: s, rank: r, isRed: s === '♥' || s === '♦' });
@@ -1520,7 +1501,7 @@
       const guestHand = [pokerDeck.pop(), pokerDeck.pop()];
       pokerBotHand = guestHand; pokerBoard = []; pokerIsMyTurn = true;
 
-      sendPokerP2P('INIT_HAND', {
+      sendPokerOnline('INIT_HAND', {
         yourHand: guestHand, board: [], pot: pokerPot,
         yourChips: pokerBotChips, oppChips: pokerPlayerChips, stage: 0, isYourTurn: false
       });
@@ -1566,12 +1547,12 @@
     function pokerResetGame() {
       pokerPlayerChips = 1000; pokerBotChips = 1000;
       document.getElementById('poker-gameover-controls').style.display = 'none';
-      if (pokerIsP2P && pokerIsHost) p2pPokerHostNewHand(); else pokerNewHand();
+      if (pokerIsOnline && pokerIsHost) onlinePokerHostNewHand(); else pokerNewHand();
     }
 
     function pokerNewHand() {
-      if (pokerIsP2P) {
-        if (pokerIsHost) p2pPokerHostNewHand(); else sendPokerP2P('NEW_HAND_REQ', {});
+      if (pokerIsOnline) {
+        if (pokerIsHost) onlinePokerHostNewHand(); else sendPokerOnline('NEW_HAND_REQ', {});
         return;
       }
 
@@ -1674,12 +1655,12 @@
     }
 
     function pokerAction(action) {
-      if (pokerIsP2P && !pokerIsMyTurn) return;
+      if (pokerIsOnline && !pokerIsMyTurn) return;
 
       if (action === 'fold') {
         pokerBotChips += pokerPot;
         document.getElementById('poker-status').innerText = "Ты сбросил карты. Банк уходит сопернику.";
-        if (pokerIsP2P) sendPokerP2P('ACTION', { action: 'fold' });
+        if (pokerIsOnline) sendPokerOnline('ACTION', { action: 'fold' });
         pokerEndHand();
         return;
       }
@@ -1688,10 +1669,10 @@
         const playerAllIn = pokerPlayerChips;
         pokerPlayerChips = 0; pokerPot += playerAllIn;
 
-        if (pokerIsP2P) {
+        if (pokerIsOnline) {
           pokerIsMyTurn = false; pokerToggleControls(false);
           document.getElementById('poker-status').innerText = "Ты пошел ALL-IN! Ждем друга...";
-          sendPokerP2P('ACTION', { action: 'allin', betAmount: playerAllIn });
+          sendPokerOnline('ACTION', { action: 'allin', betAmount: playerAllIn });
           pokerRender(false);
           return;
         }
@@ -1717,10 +1698,10 @@
         const bet = Math.min(pokerPlayerChips, pokerCurrentRaise);
         pokerPlayerChips -= bet; pokerPot += bet;
 
-        if (pokerIsP2P) {
+        if (pokerIsOnline) {
           pokerIsMyTurn = false; pokerToggleControls(false);
           document.getElementById('poker-status').innerText = `Ты поднял ставку на +${bet}! Ход друга...`;
-          sendPokerP2P('ACTION', { action: 'raise', betAmount: bet });
+          sendPokerOnline('ACTION', { action: 'raise', betAmount: bet });
           pokerRender(false);
           return;
         }
@@ -1738,10 +1719,10 @@
         document.getElementById('poker-status').innerText = `Ты поднял +${bet}. Бот ответил коллом!`;
       }
 
-      if (action === 'check' && pokerIsP2P) {
+      if (action === 'check' && pokerIsOnline) {
         pokerIsMyTurn = false; pokerToggleControls(false);
         document.getElementById('poker-status').innerText = "Ты сделал чек. Ход друга...";
-        sendPokerP2P('ACTION', { action: 'check' });
+        sendPokerOnline('ACTION', { action: 'check' });
         return;
       }
 
@@ -1752,15 +1733,15 @@
       pokerStage++;
       let stageName = "";
       if (pokerStage === 1) {
-        if (pokerIsP2P && !pokerIsHost) return;
+        if (pokerIsOnline && !pokerIsHost) return;
         pokerBoard.push(pokerDeck.pop(), pokerDeck.pop(), pokerDeck.pop());
         stageName = "Флоп! Делай ход.";
       } else if (pokerStage === 2) {
-        if (pokerIsP2P && !pokerIsHost) return;
+        if (pokerIsOnline && !pokerIsHost) return;
         pokerBoard.push(pokerDeck.pop());
         stageName = "Тёрн! Делай ход.";
       } else if (pokerStage === 3) {
-        if (pokerIsP2P && !pokerIsHost) return;
+        if (pokerIsOnline && !pokerIsHost) return;
         pokerBoard.push(pokerDeck.pop());
         stageName = "Ривер! Финальный раунд.";
       } else {
@@ -1768,9 +1749,9 @@
         return;
       }
 
-      if (pokerIsP2P && pokerIsHost) {
+      if (pokerIsOnline && pokerIsHost) {
         pokerIsMyTurn = true; pokerToggleControls(true);
-        sendPokerP2P('NEXT_STAGE', {
+        sendPokerOnline('NEXT_STAGE', {
           board: pokerBoard, pot: pokerPot, yourChips: pokerBotChips, oppChips: pokerPlayerChips,
           stage: pokerStage, isYourTurn: false, status: stageName + " Ход друга."
         });
@@ -1794,13 +1775,13 @@
         resultText = `Ничья! Банк поделен (${pScore.name})`;
       } else {
         pokerBotChips += pokerPot;
-        resultText = `${pokerIsP2P ? "Друг" : "Бот"} выиграл! У него: ${bScore.name}`;
+        resultText = `${pokerIsOnline ? "Друг" : "Бот"} выиграл! У него: ${bScore.name}`;
       }
 
       document.getElementById('poker-status').innerText = resultText;
 
-      if (pokerIsP2P && pokerIsHost) {
-        sendPokerP2P('SHOWDOWN', {
+      if (pokerIsOnline && pokerIsHost) {
+        sendPokerOnline('SHOWDOWN', {
           board: pokerBoard, oppHand: pokerPlayerHand, pot: 0,
           yourChips: pokerBotChips, oppChips: pokerPlayerChips,
           status: (pScore.score < bScore.score) ? `Победа друга! У него ${bScore.name}` : `Ты выиграл! У тебя ${bScore.name}`
@@ -1817,7 +1798,7 @@
         document.getElementById('poker-restart-controls').style.display = 'none';
         document.getElementById('poker-gameover-controls').style.display = 'flex';
       } else if (pokerBotChips <= 0) {
-        document.getElementById('poker-status').innerText += ` 🎉 ${pokerIsP2P ? "Друг" : "Бот"} полностью обанкрочен!`;
+        document.getElementById('poker-status').innerText += ` 🎉 ${pokerIsOnline ? "Друг" : "Бот"} полностью обанкрочен!`;
         document.getElementById('poker-restart-controls').style.display = 'none';
         document.getElementById('poker-gameover-controls').style.display = 'flex';
       } else {
@@ -2008,7 +1989,6 @@
 
     function seaPlayerShoot(r, c) {
       if (seaBotGrid[r][c] >= 2) return;
-
       if (seaBotGrid[r][c] === 1) {
         seaBotGrid[r][c] = 2;
         let hitShip = seaBotShipsList.find(s => s.coords.some(pt => pt.r === r && pt.c === c));
@@ -2018,30 +1998,19 @@
             hitShip.sunk = true;
             hitShip.coords.forEach(pt => { seaBotGrid[pt.r][pt.c] = 4; });
             document.getElementById('sea-status').innerText = `💥 ${hitShip.length}-палубный корабль ПОТОПЛЕН!`;
-          } else {
-            document.getElementById('sea-status').innerText = "💥 Попадание! Стреляй еще.";
-          }
+          } else document.getElementById('sea-status').innerText = "💥 Попадание! Стреляй еще.";
         }
         seaUpdateCounters(); seaRenderFleetStatus(); seaRender();
-        if (seaBotShipsList.every(s => s.sunk)) {
-          alert("🎉 Победа! Весь вражеский флот уничтожен!");
-          goToMenu();
-        }
+        if (seaBotShipsList.every(s => s.sunk)) { alert("🎉 Победа! Весь вражеский флот уничтожен!"); goToMenu(); }
       } else {
-        seaBotGrid[r][c] = 3;
-        document.getElementById('sea-status').innerText = "Мимо! Ход бота...";
-        seaRender();
-        setTimeout(seaBotShoot, 600);
+        seaBotGrid[r][c] = 3; document.getElementById('sea-status').innerText = "Мимо! Ход бота...";
+        seaRender(); setTimeout(seaBotShoot, 600);
       }
     }
 
     function seaBotShoot() {
       let r, c;
-      do {
-        r = Math.floor(Math.random() * 10);
-        c = Math.floor(Math.random() * 10);
-      } while (seaPlayerGrid[r][c] >= 2);
-
+      do { r = Math.floor(Math.random() * 10); c = Math.floor(Math.random() * 10); } while (seaPlayerGrid[r][c] >= 2);
       if (seaPlayerGrid[r][c] === 1) {
         seaPlayerGrid[r][c] = 2;
         let hitShip = seaPlayerShipsList.find(s => s.coords.some(pt => pt.r === r && pt.c === c));
@@ -2051,21 +2020,13 @@
             hitShip.sunk = true;
             hitShip.coords.forEach(pt => { seaPlayerGrid[pt.r][pt.c] = 4; });
             document.getElementById('sea-status').innerText = "Твой корабль ПОТОПЛЕН!";
-          } else {
-            document.getElementById('sea-status').innerText = "Бот попал по твоему кораблю!";
-          }
+          } else document.getElementById('sea-status').innerText = "Бот попал по твоему кораблю!";
         }
         seaUpdateCounters(); seaRender();
-        if (seaPlayerShipsList.every(s => s.sunk)) {
-          alert("💀 Твой флот полностью разбит!");
-          goToMenu();
-          return;
-        }
+        if (seaPlayerShipsList.every(s => s.sunk)) { alert("💀 Твой флот полностью разбит!"); goToMenu(); return; }
         setTimeout(seaBotShoot, 650);
       } else {
-        seaPlayerGrid[r][c] = 3;
-        document.getElementById('sea-status').innerText = "Бот промахнулся. Твой выстрел!";
-        seaRender();
+        seaPlayerGrid[r][c] = 3; document.getElementById('sea-status').innerText = "Бот промахнулся. Твой выстрел!"; seaRender();
       }
     }
   </script>
