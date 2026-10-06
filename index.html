@@ -181,7 +181,7 @@
 </head>
 <body>
 
-  <!-- Выбор режима -->
+  <!-- Выбор режима игры -->
   <div class="modal-overlay" id="start-modal">
     <div class="modal-box">
       <div class="modal-title">Выберите режим игры</div>
@@ -229,8 +229,8 @@
     let deck = [], playerHand = [], botHand = [];
     let trumpSuit = '', trumpCard = null;
     let table = [];
-    let isPlayerAttacking = true; // Кто атакует в этом раунде
-    let isPlayerTurn = true;      // Чья очередь совершать действие прямо сейчас
+    let isPlayerAttacking = true; 
+    let isPlayerTurn = true;      
     let isBotThinking = false;
     let pendingCardIdx = null;
 
@@ -249,17 +249,13 @@
       }
       deck.sort(() => Math.random() - 0.5);
 
-      // Козырь лежит внизу колоды (первый элемент массива deck)
       trumpCard = deck[0];
       trumpSuit = trumpCard.suit;
 
-      // Раздача по 6 карт
       playerHand = deck.splice(deck.length - 6, 6);
       botHand = deck.splice(deck.length - 6, 6);
 
       sortHand(playerHand);
-
-      // Определение первого хода по наименьшему козырю
       determineFirstTurn();
       render();
     }
@@ -275,7 +271,6 @@
       } else if (botTrumps.length > 0) {
         isPlayerAttacking = false;
       } else {
-        // Если козырей нет ни у кого — наименьшая простая карта
         const pMin = Math.min(...playerHand.map(c => VALUES[c.rank]));
         const bMin = Math.min(...botHand.map(c => VALUES[c.rank]));
         isPlayerAttacking = pMin <= bMin;
@@ -334,11 +329,15 @@
 
       if (isPlayerAttacking) {
         btn.innerText = "Бито";
-        // Бито доступно только если стол не пуст и все карты на нем отбиты
         btn.disabled = table.length === 0 || hasUncovered || isBotThinking;
       } else {
-        btn.innerText = "Беру карту";
-        btn.disabled = isBotThinking || table.length === 0;
+        if (table.length > 0 && !hasUncovered) {
+          btn.innerText = "Бито";
+          btn.disabled = isBotThinking;
+        } else {
+          btn.innerText = "Беру карту";
+          btn.disabled = isBotThinking || table.length === 0;
+        }
       }
     }
 
@@ -347,7 +346,6 @@
       return defend.suit === trumpSuit && attack.suit !== trumpSuit;
     }
 
-    // Допустимо ли подкинуть карту (есть ли такое достоинство уже на столе)
     function canTossCard(card) {
       if (table.length === 0) return true;
       return table.some(p => p.attack.rank === card.rank || (p.defend && p.defend.rank === card.rank));
@@ -358,9 +356,7 @@
       const card = playerHand[idx];
 
       if (isPlayerAttacking) {
-        // Игрок атакует/подкидывает
         if (canTossCard(card)) {
-          // Правило лимита подкидывания: не более 6 карт и не больше, чем карт на руках у бота
           const unbeatCount = table.filter(p => !p.defend).length;
           if (table.length >= 6 || unbeatCount >= botHand.length) {
             document.getElementById('status').innerText = "Нельзя подкинуть: у бота больше нет карт!";
@@ -373,7 +369,6 @@
           triggerBotDefense();
         }
       } else {
-        // Игрок отбивается или переводит
         const allUncovered = table.length > 0 && table.every(p => !p.defend);
         const matchRank = allUncovered && table[0].attack.rank === card.rank;
         const canTransfer = (gameMode === 'perevodnoy' && matchRank && botHand.length >= table.length + 1 && table.length < 6);
@@ -415,7 +410,6 @@
     function executeTransfer(idx) {
       const card = playerHand.splice(idx, 1)[0];
       table.push({ attack: card, defend: null });
-      // Ход переводится: теперь бот отбивающийся
       isPlayerAttacking = true;
       isPlayerTurn = true;
       isBotThinking = false;
@@ -438,7 +432,6 @@
       }
     }
 
-    // Бот решает, подкинуть ли еще карту игроку
     function botTossStep() {
       if (table.length >= 6 || botHand.length === 0 || playerHand.length === 0) return;
 
@@ -462,7 +455,6 @@
     }
 
     function botProcessDefenseStep() {
-      // Проверка на перевод ботом
       const allUncovered = table.length > 0 && table.every(p => !p.defend);
       if (gameMode === 'perevodnoy' && allUncovered && playerHand.length >= table.length + 1 && table.length < 6) {
         const transferIdx = botHand.findIndex(c => c.rank === table[0].attack.rank);
@@ -486,7 +478,6 @@
         return;
       }
 
-      // Поиск минимальной карты для отбития
       let bestIdx = -1;
       for (let i = 0; i < botHand.length; i++) {
         if (canBeat(undefended.attack, botHand[i])) {
@@ -508,7 +499,7 @@
           setTimeout(botProcessDefenseStep, 450);
         } else {
           isBotThinking = false;
-          document.getElementById('status').innerText = "Бот всё отбил! Можешь подкинуть или нажать «Бито».";
+          document.getElementById('status').innerText = "Бот всё отбил! Можешь подкинуть еще или нажать «Бито».";
           render();
         }
       } else {
@@ -519,7 +510,6 @@
             if (p.defend) botHand.push(p.defend); 
           });
           table = [];
-          // Если отбивающийся берет, карты из колоды берет только атакующий!
           refillHand(playerHand);
           sortHand(botHand);
           isBotThinking = false;
@@ -534,28 +524,32 @@
 
     function handleAction() {
       if (isBotThinking) return;
+      const hasUncovered = table.some(p => !p.defend);
 
-      if (isPlayerAttacking) {
-        // Бито: стол уходит в отбой
+      if (isPlayerAttacking || (!isPlayerAttacking && !hasUncovered && table.length > 0)) {
         table = [];
-        // Очередность добора: атакующий берет первым!
-        refillHand(playerHand);
-        refillHand(botHand);
+        refillHand(isPlayerAttacking ? playerHand : botHand);
+        refillHand(isPlayerAttacking ? botHand : playerHand);
         if (checkGameOver()) return;
 
-        isPlayerAttacking = false;
-        isPlayerTurn = false;
-        document.getElementById('status').innerText = "Бито! Ход бота.";
-        render();
-        setTimeout(botAttack, 800);
+        if (!isPlayerAttacking) {
+          isPlayerAttacking = true;
+          isPlayerTurn = true;
+          document.getElementById('status').innerText = "Бито! Твой ход.";
+          render();
+        } else {
+          isPlayerAttacking = false;
+          isPlayerTurn = false;
+          document.getElementById('status').innerText = "Бито! Ход бота.";
+          render();
+          setTimeout(botAttack, 800);
+        }
       } else {
-        // Игрок берет карты
         table.forEach(p => { 
           playerHand.push(p.attack); 
           if (p.defend) playerHand.push(p.defend); 
         });
         table = [];
-        // Атакующий (бот) добирает карты
         refillHand(botHand);
         sortHand(playerHand);
         if (checkGameOver()) return;
@@ -573,7 +567,6 @@
       if (checkGameOver()) return;
       if (botHand.length === 0) return;
 
-      // Бот ходит наименьшей картой (не козырем)
       botHand.sort((a, b) => {
         const isATrump = a.suit === trumpSuit;
         const isBTrump = b.suit === trumpSuit;
@@ -591,10 +584,8 @@
       render();
     }
 
-    // Правильный добор карт из колоды
     function refillHand(hand) {
       while (hand.length < 6 && deck.length > 0) {
-        // Карты берутся сверху колоды (pop)
         hand.push(deck.pop());
       }
       if (hand === playerHand) sortHand(playerHand);
