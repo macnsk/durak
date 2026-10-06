@@ -19,7 +19,7 @@
       padding: 12px;
     }
     .hud { font-size: 15px; display: flex; justify-content: space-between; align-items: center; font-weight: 500; }
-    .status-msg { text-align: center; font-weight: bold; background: rgba(0,0,0,0.35); padding: 8px; border-radius: 8px; margin: 6px 0; font-size: 14px; }
+    .status-msg { text-align: center; font-weight: bold; background: rgba(0,0,0,0.35); padding: 8px; border-radius: 8px; margin: 6px 0; font-size: 14px; min-height: 36px; display: flex; align-items: center; justify-content: center; }
     
     .table-zone {
       flex: 1;
@@ -101,9 +101,8 @@
       color: #000;
       cursor: pointer;
     }
-    button:disabled { opacity: 0.45; cursor: default; }
+    button:disabled { opacity: 0.35; cursor: default; }
 
-    /* Модальное окно выбора режима */
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -174,6 +173,7 @@
     let trumpSuit = '', trumpCard = null;
     let table = [];
     let isPlayerTurn = true;
+    let isBotThinking = false;
 
     function startGame(mode) {
       gameMode = mode;
@@ -200,164 +200,6 @@
       render();
     }
 
-    // Сортировка: по рангу, козыри всегда строго в конце
     function sortHand(hand) {
       hand.sort((a, b) => {
-        const isATrump = a.suit === trumpSuit;
-        const isBTrump = b.suit === trumpSuit;
-
-        if (isATrump && !isBTrump) return 1;
-        if (!isATrump && isBTrump) return -1;
-        return VALUES[a.rank] - VALUES[b.rank];
-      });
-    }
-
-    function renderCard(c, extraClass = '') {
-      const isTrump = c.suit === trumpSuit;
-      return `
-        <div class="card ${c.isRed ? 'red' : ''} ${isTrump ? 'trump' : ''} ${extraClass}">
-          <div class="card-corner">${c.rank}</div>
-          <div class="card-center">${c.suit}</div>
-          <div class="card-corner" style="text-align: right;">${c.rank}</div>
-        </div>
-      `;
-    }
-
-    function render() {
-      document.getElementById('deck-count').innerText = deck.length;
-      document.getElementById('bot-count').innerText = botHand.length;
-      document.getElementById('trump-val').innerText = `${trumpCard.rank}${trumpCard.suit}`;
-
-      const handDiv = document.getElementById('player-hand');
-      handDiv.innerHTML = playerHand.map((c, i) => 
-        `<div onclick="playerPlayCard(${i})">${renderCard(c)}</div>`
-      ).join('');
-
-      const tableDiv = document.getElementById('table');
-      tableDiv.innerHTML = table.map(p => `
-        <div class="card-pair">
-          ${renderCard(p.attack, 'attack-card')}
-          ${p.defend ? renderCard(p.defend, 'defend-card') : ''}
-        </div>
-      `).join('');
-
-      const btn = document.getElementById('action-btn');
-      if (isPlayerTurn) {
-        btn.innerText = "Бито";
-        btn.disabled = table.length === 0 || table.some(p => !p.defend);
-      } else {
-        btn.innerText = "Беру карту";
-        btn.disabled = false;
-      }
-    }
-
-    function canBeat(c1, c2) {
-      if (c1.suit === c2.suit) return VALUES[c1.rank] > VALUES[c2.rank];
-      return c1.suit === trumpSuit;
-    }
-
-    function playerPlayCard(idx) {
-      const card = playerHand[idx];
-
-      if (isPlayerTurn) {
-        // Подкидывание игроком
-        if (table.length === 0 || table.some(p => p.attack.rank === card.rank || p.defend?.rank === card.rank)) {
-          playerHand.splice(idx, 1);
-          table.push({ attack: card, defend: null });
-          render();
-          document.getElementById('status').innerText = "Ход сделан. Бот думает...";
-          setTimeout(botDefend, 700);
-        }
-      } else {
-        // Переводной режим: если стол не покрыт и карта совпадает по рангу
-        const hasUncovered = table.every(p => !p.defend);
-        if (gameMode === 'perevodnoy' && hasUncovered && table.length > 0 && table[0].attack.rank === card.rank) {
-          playerHand.splice(idx, 1);
-          table.push({ attack: card, defend: null });
-          isPlayerTurn = true;
-          document.getElementById('status').innerText = "Переведено! Теперь ходит бот.";
-          render();
-          setTimeout(botDefend, 800);
-          return;
-        }
-
-        // Защита картой
-        const undefended = table.find(p => !p.defend);
-        if (undefended && canBeat(card, undefended.attack)) {
-          playerHand.splice(idx, 1);
-          undefended.defend = card;
-          render();
-          document.getElementById('status').innerText = "Ты отбился!";
-        }
-      }
-    }
-
-    function botDefend() {
-      // Бот проверяет перевод (если включен переводной режим)
-      const hasUncovered = table.every(p => !p.defend);
-      if (gameMode === 'perevodnoy' && hasUncovered && table.length > 0) {
-        const transferCardIdx = botHand.findIndex(c => c.rank === table[0].attack.rank);
-        if (transferCardIdx !== -1) {
-          const card = botHand.splice(transferCardIdx, 1)[0];
-          table.push({ attack: card, defend: null });
-          isPlayerTurn = false;
-          document.getElementById('status').innerText = `Бот перевел карту: ${card.rank}${card.suit}! Отбивайся.`;
-          render();
-          return;
-        }
-      }
-
-      const undefended = table.find(p => !p.defend);
-      if (!undefended) return;
-
-      const beatCardIdx = botHand.findIndex(c => canBeat(c, undefended.attack));
-      if (beatCardIdx !== -1) {
-        undefended.defend = botHand.splice(beatCardIdx, 1)[0];
-        document.getElementById('status').innerText = "Бот отбился. Можешь подкинуть или нажать «Бито».";
-      } else {
-        document.getElementById('status').innerText = "Бот забирает карты.";
-        setTimeout(() => {
-          table.forEach(p => { botHand.push(p.attack); if (p.defend) botHand.push(p.defend); });
-          table = [];
-          refillHands();
-          render();
-          document.getElementById('status').innerText = "Твой ход!";
-        }, 1100);
-      }
-      render();
-    }
-
-    function handleAction() {
-      if (isPlayerTurn) {
-        table = [];
-        refillHands();
-        isPlayerTurn = false;
-        document.getElementById('status').innerText = "Ход бота. Отбивайся!";
-        render();
-        setTimeout(botAttack, 800);
-      } else {
-        table.forEach(p => { playerHand.push(p.attack); if (p.defend) playerHand.push(p.defend); });
-        table = [];
-        refillHands();
-        document.getElementById('status').innerText = "Ты взял карты. Ход бота.";
-        render();
-        setTimeout(botAttack, 800);
-      }
-    }
-
-    function botAttack() {
-      if (botHand.length === 0) return;
-      const card = botHand.shift();
-      table.push({ attack: card, defend: null });
-      document.getElementById('status').innerText = `Бот ходит: ${card.rank}${card.suit}. Защищайся!`;
-      render();
-    }
-
-    function refillHands() {
-      while (playerHand.length < 6 && deck.length > 0) playerHand.push(deck.shift());
-      while (botHand.length < 6 && deck.length > 0) botHand.push(deck.shift());
-      sortHand(playerHand);
-    }
-  </script>
-</body>
-</html>
+        const isATrump = a
