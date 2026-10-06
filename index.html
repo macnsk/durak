@@ -17,22 +17,23 @@
       flex-direction: column;
     }
 
-    /* ЭКРАН ГЛАВНОГО МЕНЮ */
+    /* ГЛАВНОЕ МЕНЮ */
     #menu-screen {
       flex: 1;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      padding: 20px;
-      gap: 15px;
+      padding: 16px;
+      gap: 12px;
       background: radial-gradient(circle, #1e3d23 0%, #0d1a0f 100%);
+      overflow-y: auto;
     }
-    .menu-title { font-size: 26px; font-weight: 800; text-align: center; margin-bottom: 10px; color: #fbc02d; text-shadow: 0 2px 8px rgba(0,0,0,0.6); }
+    .menu-title { font-size: 24px; font-weight: 800; text-align: center; margin-bottom: 6px; color: #fbc02d; text-shadow: 0 2px 8px rgba(0,0,0,0.6); }
     .menu-card {
       width: 100%;
       max-width: 320px;
-      padding: 16px;
+      padding: 14px;
       border-radius: 14px;
       border: 1px solid rgba(255,255,255,0.15);
       background: rgba(255,255,255,0.06);
@@ -44,11 +45,11 @@
       transition: transform 0.1s ease, background 0.15s ease;
     }
     .menu-card:active { transform: scale(0.97); background: rgba(255,255,255,0.12); }
-    .menu-card-icon { font-size: 32px; }
-    .menu-card-info h3 { font-size: 17px; margin-bottom: 3px; }
+    .menu-card-icon { font-size: 30px; }
+    .menu-card-info h3 { font-size: 16px; margin-bottom: 2px; }
     .menu-card-info p { font-size: 12px; color: #bbb; }
 
-    /* ОБЩИЙ КОНТЕЙНЕР ДЛЯ ИГР */
+    /* ОБЩИЙ ВИД ИГР */
     .game-view {
       display: none;
       flex: 1;
@@ -111,10 +112,16 @@
       font-weight: bold;
       font-size: 13px;
       box-shadow: 0 3px 6px rgba(0,0,0,0.35);
-      cursor: grab;
       border: 2px solid transparent;
       touch-action: none;
       position: relative;
+    }
+    .card.animate-deal {
+      animation: dealIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+    @keyframes dealIn {
+      0% { opacity: 0; transform: translateY(-25px) scale(0.7); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
     }
     .card.red { color: #d32f2f; }
     .card.trump { border: 2px solid #ff1744 !important; box-shadow: 0 0 8px rgba(255, 23, 68, 0.9); }
@@ -123,7 +130,7 @@
     .card-center { text-align: center; font-size: 18px; line-height: 18px; margin: auto 0; pointer-events: none; }
     .card-corner { font-size: 11px; line-height: 11px; pointer-events: none; }
 
-    /* СТИЛИ ДУРАКА */
+    /* ДУРАК */
     .durak-table {
       flex: 1;
       display: flex;
@@ -141,34 +148,94 @@
     .card-pair .attack-card { position: absolute; left: 0; top: 0; z-index: 1; }
     .card-pair .defend-card { position: absolute; left: 10px; top: 12px; z-index: 2; transform: rotate(6deg); box-shadow: -2px 3px 10px rgba(0,0,0,0.5); }
     .hand { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 5px; max-height: 170px; overflow-y: auto; padding: 4px 0; }
-    .controls { display: flex; gap: 8px; margin-top: 4px; }
-    button.game-btn { flex: 1; padding: 12px; border-radius: 10px; border: none; font-weight: bold; font-size: 15px; background: #fbc02d; color: #000; cursor: pointer; }
+    .controls { display: flex; gap: 6px; margin-top: 4px; }
+    button.game-btn { flex: 1; padding: 12px; border-radius: 10px; border: none; font-weight: bold; font-size: 14px; background: #fbc02d; color: #000; cursor: pointer; }
     button.game-btn:disabled { opacity: 0.35; cursor: default; }
 
-    /* МОДАЛКИ ВЫБОРА */
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 99; padding: 20px; }
     .modal-box { background: #1e3a24; border: 2px solid #fbc02d; border-radius: 14px; padding: 22px; width: 100%; max-width: 320px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.6); }
 
-    /* СТИЛИ 21 ОЧКО (BLACKJACK) */
+    /* 21 ОЧКО */
     .bj-board { flex: 1; display: flex; flex-direction: column; justify-content: space-around; align-items: center; }
     .bj-hand-box { display: flex; flex-direction: column; align-items: center; gap: 6px; }
     .cards-row { display: flex; gap: 6px; justify-content: center; }
 
-    /* СТИЛИ МОРСКОГО БОЯ */
-    .sea-board-container { flex: 1; display: flex; flex-direction: column; justify-content: space-around; align-items: center; overflow-y: auto; gap: 10px; }
+    /* ПОКЕР */
+    .poker-board { flex: 1; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 6px 0; }
+    .poker-table-zone { background: radial-gradient(circle, #256b3b 0%, #114221 100%); border: 3px solid #b8860b; border-radius: 80px; width: 100%; max-width: 350px; height: 150px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; box-shadow: inset 0 0 20px rgba(0,0,0,0.6); }
+    .pot-text { font-size: 14px; font-weight: bold; color: #ffd700; }
+    .raise-stepper { display: flex; align-items: center; gap: 4px; flex: 1.2; }
+    .raise-stepper-btn { background: #455a64; color: #fff; border: none; padding: 10px 8px; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer; }
+
+    /* МОРСКОЙ БОЙ */
+    .sea-board-container { flex: 1; display: flex; flex-direction: column; justify-content: space-around; align-items: center; overflow-y: auto; gap: 6px; padding: 4px 0; }
     .sea-grid-wrap { text-align: center; }
-    .sea-grid-title { font-size: 13px; font-weight: bold; margin-bottom: 4px; color: #81c784; }
+    .sea-grid-title { font-size: 12px; font-weight: bold; margin-bottom: 2px; color: #81c784; }
     .sea-grid { display: grid; grid-template-columns: repeat(10, 24px); grid-template-rows: repeat(10, 24px); gap: 2px; background: rgba(0,0,0,0.4); padding: 4px; border-radius: 6px; }
-    .sea-cell { width: 24px; height: 24px; background: #1b4d3e; border-radius: 3px; display: flex; justify-content: center; align-items: center; font-size: 11px; cursor: pointer; }
+    .sea-cell { width: 24px; height: 24px; background: #1b4d3e; border-radius: 3px; display: flex; justify-content: center; align-items: center; font-size: 11px; cursor: pointer; position: relative; }
     .sea-cell.ship { background: #4caf50; }
     .sea-cell.hit { background: #e53935; color: #fff; font-weight: bold; }
+    .sea-cell.hit::after { content: "×"; font-size: 18px; line-height: 18px; }
+    .sea-cell.sunk { background: #b71c1c !important; }
+    .sea-cell.sunk::after { content: "✕"; color: #ffebee; font-size: 17px; font-weight: 900; }
     .sea-cell.miss { background: #37474f; }
     .sea-cell.miss::after { content: "•"; color: #90a4ae; font-size: 16px; }
+    .fleet-status-bar { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 8px; max-width: 320px; margin-bottom: 4px; }
+    .fleet-ship-item { display: flex; gap: 2px; padding: 2px 4px; background: rgba(255,255,255,0.06); border-radius: 4px; border: 1px solid rgba(255,255,255,0.15); position: relative; }
+    .fleet-ship-item.sunk { opacity: 0.4; background: rgba(0,0,0,0.4); border-color: #d32f2f; }
+    .fleet-ship-item.sunk::after { content: ""; position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: #e53935; transform: translateY(-50%); }
+    .fleet-deck-dot { width: 10px; height: 10px; background: #81c784; border-radius: 2px; }
+    .fleet-deck-dot.damaged { background: #e53935; }
 
-    /* СТИЛИ ХОЛДЕМА */
-    .poker-board { flex: 1; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 10px 0; }
-    .poker-table-zone { background: radial-gradient(circle, #256b3b 0%, #114221 100%); border: 3px solid #b8860b; border-radius: 80px; width: 100%; max-width: 350px; height: 160px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; box-shadow: inset 0 0 20px rgba(0,0,0,0.6); }
-    .pot-text { font-size: 14px; font-weight: bold; color: #ffd700; }
+    /* 5. СТИЛИ ДЛЯ ИГРЫ 3 В РЯД (ROYAL MATCH) */
+    .match-board-wrap {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 6px;
+    }
+    .match-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 44px);
+      grid-template-rows: repeat(7, 44px);
+      gap: 5px;
+      background: radial-gradient(circle, #2a1a45 0%, #150d24 100%);
+      padding: 10px;
+      border-radius: 16px;
+      border: 3px solid #ffd700;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    }
+    .match-tile {
+      width: 44px;
+      height: 44px;
+      background: rgba(255,255,255,0.07);
+      border-radius: 10px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 26px;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.15s ease;
+      position: relative;
+    }
+    .match-tile:active {
+      transform: scale(0.9);
+    }
+    .match-tile.selected {
+      background: rgba(255, 215, 0, 0.35);
+      border: 2px solid #ffd700;
+      transform: scale(1.08);
+      box-shadow: 0 0 12px rgba(255, 215, 0, 0.8);
+    }
+    .match-tile.pop-anim {
+      animation: tilePop 0.25s ease forwards;
+    }
+    @keyframes tilePop {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.3); filter: brightness(1.6); }
+      100% { transform: scale(0); opacity: 0; }
+    }
   </style>
 </head>
 <body>
@@ -177,11 +244,19 @@
   <div id="menu-screen">
     <div class="menu-title">ИГРОВОЙ КЛУБ</div>
     
+    <div class="menu-card" onclick="openGame('match3')">
+      <div class="menu-card-icon">👑</div>
+      <div class="menu-card-info">
+        <h3>Королевские 3 в Ряд</h3>
+        <p>Стиль Royal Match: кристаллы, комбо и ходы</p>
+      </div>
+    </div>
+
     <div class="menu-card" onclick="openGame('durak')">
       <div class="menu-card-icon">🃏</div>
       <div class="menu-card-info">
         <h3>Дурак</h3>
-        <p>Подкидной и переводной с перетягиванием</p>
+        <p>Подкидной и переводной</p>
       </div>
     </div>
 
@@ -189,7 +264,7 @@
       <div class="menu-card-icon">♠️</div>
       <div class="menu-card-info">
         <h3>Техасский Холдем</h3>
-        <p>Покер против бота, банк и комбинации</p>
+        <p>Умный бот, рейз +/-50, анимации</p>
       </div>
     </div>
 
@@ -197,7 +272,7 @@
       <div class="menu-card-icon">🎰</div>
       <div class="menu-card-info">
         <h3>21 Очко (Блэкджек)</h3>
-        <p>Сыграй против дилера на очки</p>
+        <p>Сыграй против дилера</p>
       </div>
     </div>
 
@@ -205,12 +280,32 @@
       <div class="menu-card-icon">🚢</div>
       <div class="menu-card-info">
         <h3>Морской бой</h3>
-        <p>Классическая дуэль флотов 10×10</p>
+        <p>Индикатор оставшихся кораблей</p>
       </div>
     </div>
   </div>
 
-  <!-- ================= ДУРАК ================= -->
+  <!-- 5. ИГРА 3 В РЯД (ROYAL MATCH СТИЛЬ) -->
+  <div class="game-view" id="game-match3">
+    <div class="top-nav">
+      <button class="back-btn" onclick="goToMenu()">◀ В меню</button>
+      <div class="hud" style="flex:1; margin-left:8px;">
+        <div>Очки: <span id="m3-score" style="color:#ffd700; font-weight:bold;">0</span> / 1500</div>
+        <div>Ходов: <span id="m3-moves" style="color:#4fc3f7; font-weight:bold;">25</span></div>
+      </div>
+    </div>
+    <div class="status-msg" id="m3-status">Соединяй по 3 и более королевских знака в ряд!</div>
+
+    <div class="match-board-wrap">
+      <div class="match-grid" id="m3-grid"></div>
+    </div>
+
+    <div class="controls">
+      <button class="game-btn" onclick="m3InitGame()">Перезапустить уровень</button>
+    </div>
+  </div>
+
+  <!-- ДУРАК -->
   <div class="game-view" id="game-durak">
     <div class="top-nav">
       <button class="back-btn" onclick="goToMenu()">◀ В меню</button>
@@ -230,7 +325,6 @@
     </div>
   </div>
 
-  <!-- Диалог: Режим дурака -->
   <div class="modal-overlay" id="durak-start-modal" style="display:none;">
     <div class="modal-box">
       <div style="font-size:18px; margin-bottom:16px; font-weight:bold;">Режим «Дурака»</div>
@@ -239,7 +333,6 @@
     </div>
   </div>
 
-  <!-- Диалог: Перевести или Отбиться -->
   <div class="modal-overlay" id="durak-choice-modal" style="display:none;">
     <div class="modal-box">
       <div style="font-size:17px; margin-bottom:14px; font-weight:bold;" id="durak-choice-text">Как сыграть?</div>
@@ -249,7 +342,7 @@
     </div>
   </div>
 
-  <!-- ================= 21 ОЧКО (BLACKJACK) ================= -->
+  <!-- 21 ОЧКО -->
   <div class="game-view" id="game-blackjack">
     <div class="top-nav">
       <button class="back-btn" onclick="goToMenu()">◀ В меню</button>
@@ -278,7 +371,7 @@
     </div>
   </div>
 
-  <!-- ================= ХОЛДЕМ (POKER) ================= -->
+  <!-- ПОКЕР ТЕХАССКИЙ ХОЛДЕМ -->
   <div class="game-view" id="game-poker">
     <div class="top-nav">
       <button class="back-btn" onclick="goToMenu()">◀ В меню</button>
@@ -290,7 +383,7 @@
     <div class="status-msg" id="poker-status">Префлоп. Твой ход!</div>
     <div class="poker-board">
       <div style="text-align:center;">
-        <div style="font-size:12px; color:#bbb; margin-bottom:4px;">Карты соперника</div>
+        <div style="font-size:12px; color:#bbb; margin-bottom:4px;">Бот (<span id="poker-bot-status">в игре</span>)</div>
         <div class="cards-row" id="poker-bot-cards"></div>
       </div>
 
@@ -300,42 +393,54 @@
       </div>
 
       <div style="text-align:center;">
-        <div style="font-size:12px; color:#ffd54f; margin-bottom:4px;" id="poker-combo-text">Твои карты</div>
+        <div style="font-size:12px; color:#ffd54f; margin-bottom:4px;" id="poker-combo-text">Твоя комбинация</div>
         <div class="cards-row" id="poker-player-cards"></div>
       </div>
     </div>
+
     <div class="controls" id="poker-actions">
-      <button class="game-btn" onclick="pokerAction('check')">Чек / Колл</button>
-      <button class="game-btn" style="background:#ff9800; color:#fff;" onclick="pokerAction('raise')">Рейз +50</button>
-      <button class="game-btn" style="background:#e53935; color:#fff;" onclick="pokerAction('fold')">Пас</button>
+      <button class="game-btn" style="background:#4caf50; color:#fff;" onclick="pokerAction('check')">Чек / Колл</button>
+      
+      <div class="raise-stepper">
+        <button class="raise-stepper-btn" onclick="pokerAdjustRaise(-50)">-50</button>
+        <button class="game-btn" style="background:#ff9800; color:#fff; padding:10px 4px;" id="poker-raise-btn" onclick="pokerAction('raise')">Рейз 50</button>
+        <button class="raise-stepper-btn" onclick="pokerAdjustRaise(+50)">+50</button>
+      </div>
+
+      <button class="game-btn" style="background:#e53935; color:#fff; flex:0.8;" onclick="pokerAction('fold')">Пас</button>
     </div>
+
     <div class="controls" id="poker-restart-controls" style="display:none;">
       <button class="game-btn" onclick="pokerNewHand()">Следующая раздача</button>
     </div>
   </div>
 
-  <!-- ================= МОРСКОЙ БОЙ ================= -->
+  <!-- МОРСКОЙ БОЙ -->
   <div class="game-view" id="game-battleship">
     <div class="top-nav">
       <button class="back-btn" onclick="goToMenu()">◀ В меню</button>
       <div class="hud" style="flex:1; margin-left:8px;">
-        <div>Твой флот: <span id="sea-player-ships">10</span></div>
-        <div>Флот врага: <span id="sea-bot-ships">10</span></div>
+        <div>Твой флот: <span id="sea-player-ships">7</span></div>
+        <div>Флот врага: <span id="sea-bot-ships">7</span></div>
       </div>
     </div>
-    <div class="status-msg" id="sea-status">Стреляй по полю врага!</div>
+    <div class="status-msg" id="sea-status">Стреляй по радару врага!</div>
+    
     <div class="sea-board-container">
       <div class="sea-grid-wrap">
-        <div class="sea-grid-title">РАДАР ПРОТИВНИКА (СТРЕЛЬБА СЮДА)</div>
+        <div class="sea-grid-title">ФЛОТ ВРАГА (ОСТАЛОСЬ)</div>
+        <div class="fleet-status-bar" id="sea-bot-fleet-status"></div>
         <div class="sea-grid" id="sea-bot-grid"></div>
       </div>
+
       <div class="sea-grid-wrap">
         <div class="sea-grid-title">ТВОЙ ФЛОТ</div>
         <div class="sea-grid" id="sea-player-grid"></div>
       </div>
     </div>
+
     <div class="controls">
-      <button class="game-btn" onclick="seaInitGame()">Переставить корабли заново</button>
+      <button class="game-btn" onclick="seaInitGame()">Новая расстановка</button>
     </div>
   </div>
 
@@ -346,10 +451,10 @@
     function openGame(gameKey) {
       document.getElementById('menu-screen').style.display = 'none';
       document.querySelectorAll('.game-view').forEach(v => v.style.display = 'none');
-
       const target = document.getElementById(`game-${gameKey}`);
       if (target) target.style.display = 'flex';
 
+      if (gameKey === 'match3') m3InitGame();
       if (gameKey === 'durak') durakPromptMode();
       if (gameKey === 'blackjack') bjStartRound();
       if (gameKey === 'poker') pokerStartGame();
@@ -361,12 +466,679 @@
       document.getElementById('menu-screen').style.display = 'flex';
     }
 
+    function renderCardHTML(c, extraClass = '', animate = false) {
+      const animClass = animate ? 'animate-deal' : '';
+      return `
+        <div class="card ${c.isRed ? 'red' : ''} ${extraClass} ${animClass}">
+          <div class="card-corner">${c.rank}</div>
+          <div class="card-center">${c.suit}</div>
+          <div class="card-corner" style="text-align: right;">${c.rank}</div>
+        </div>
+      `;
+    }
+
     /* =========================================================================
-       1. ЛОГИКА ДУРАКА (С ПЕРЕТЯГИВАНИЕМ И ВСЕМИ ПРАВИЛАМИ)
+       1. ЛОГИКА 3 В РЯД (ROYAL MATCH СТИЛЬ)
        ========================================================================= */
-    const SUITS = ['♠', '♥', '♦', '♣'];
-    const RANKS = ['6', '7', '8', '9', '10', 'В', 'Д', 'К', 'Т'];
-    const VALUES = { '6':6, '7':7, '8':8, '9':9, '10':10, 'В':11, 'Д':12, 'К':13, 'Т':14 };
+    const M3_ITEMS = ['👑', '💎', '🛡️', '🪙', '🍷'];
+    const M3_ROWS = 7;
+    const M3_COLS = 7;
+    let m3Board = [];
+    let m3Score = 0;
+    let m3Moves = 25;
+    let m3Selected = null;
+    let m3IsBusy = false;
+
+    function m3InitGame() {
+      m3Score = 0;
+      m3Moves = 25;
+      m3Selected = null;
+      m3IsBusy = false;
+      document.getElementById('m3-score').innerText = m3Score;
+      document.getElementById('m3-moves').innerText = m3Moves;
+      document.getElementById('m3-status').innerText = "Соединяй по 3 и более символов в ряд!";
+
+      do {
+        m3Board = [];
+        for (let r = 0; r < M3_ROWS; r++) {
+          m3Board[r] = [];
+          for (let c = 0; c < M3_COLS; c++) {
+            m3Board[r][c] = M3_ITEMS[Math.floor(Math.random() * M3_ITEMS.length)];
+          }
+        }
+      } while (m3CheckMatches().length > 0);
+
+      m3Render();
+    }
+
+    function m3Render() {
+      const grid = document.getElementById('m3-grid');
+      grid.innerHTML = '';
+      for (let r = 0; r < M3_ROWS; r++) {
+        for (let c = 0; c < M3_COLS; c++) {
+          const div = document.createElement('div');
+          div.className = 'match-tile';
+          div.innerText = m3Board[r][c];
+          if (m3Selected && m3Selected.r === r && m3Selected.c === c) {
+            div.classList.add('selected');
+          }
+          div.onclick = () => m3TileClick(r, c);
+          grid.appendChild(div);
+        }
+      }
+    }
+
+    function m3TileClick(r, c) {
+      if (m3IsBusy || m3Moves <= 0) return;
+
+      if (!m3Selected) {
+        m3Selected = { r, c };
+        m3Render();
+      } else {
+        const dR = Math.abs(m3Selected.r - r);
+        const dC = Math.abs(m3Selected.c - c);
+
+        // Если кликнули на соседнюю клетку
+        if ((dR === 1 && dC === 0) || (dR === 0 && dC === 1)) {
+          const prev = { ...m3Selected };
+          m3Selected = null;
+          m3SwapAndProcess(prev, { r, c });
+        } else {
+          m3Selected = { r, c };
+          m3Render();
+        }
+      }
+    }
+
+    async function m3SwapAndProcess(p1, p2) {
+      m3IsBusy = true;
+      // Меняем местами
+      const temp = m3Board[p1.r][p1.c];
+      m3Board[p1.r][p1.c] = m3Board[p2.r][p2.c];
+      m3Board[p2.r][p2.c] = temp;
+      m3Render();
+
+      const matches = m3CheckMatches();
+      if (matches.length > 0) {
+        m3Moves--;
+        document.getElementById('m3-moves').innerText = m3Moves;
+        await m3ResolveMatches();
+      } else {
+        // Возвращаем обратно, если нет совпадений
+        await new Promise(res => setTimeout(res, 220));
+        m3Board[p2.r][p2.c] = m3Board[p1.r][p1.c];
+        m3Board[p1.r][p1.c] = temp;
+        m3Render();
+      }
+      m3IsBusy = false;
+      m3CheckGameStatus();
+    }
+
+    function m3CheckMatches() {
+      const matched = [];
+
+      // Горизонтальные
+      for (let r = 0; r < M3_ROWS; r++) {
+        let count = 1;
+        for (let c = 1; c < M3_COLS; c++) {
+          if (m3Board[r][c] && m3Board[r][c] === m3Board[r][c - 1]) {
+            count++;
+          } else {
+            if (count >= 3) {
+              for (let i = 0; i < count; i++) matched.push({ r, c: c - 1 - i });
+            }
+            count = 1;
+          }
+        }
+        if (count >= 3) {
+          for (let i = 0; i < count; i++) matched.push({ r, c: M3_COLS - 1 - i });
+        }
+      }
+
+      // Вертикальные
+      for (let c = 0; c < M3_COLS; c++) {
+        let count = 1;
+        for (let r = 1; r < M3_ROWS; r++) {
+          if (m3Board[r][c] && m3Board[r][c] === m3Board[r - 1][c]) {
+            count++;
+          } else {
+            if (count >= 3) {
+              for (let i = 0; i < count; i++) matched.push({ r: r - 1 - i, c });
+            }
+            count = 1;
+          }
+        }
+        if (count >= 3) {
+          for (let i = 0; i < count; i++) matched.push({ r: M3_ROWS - 1 - i, c });
+        }
+      }
+
+      // Убираем дубликаты
+      const unique = [];
+      matched.forEach(pt => {
+        if (!unique.some(u => u.r === pt.r && u.c === pt.c)) unique.push(pt);
+      });
+      return unique;
+    }
+
+    async function m3ResolveMatches() {
+      let matches = m3CheckMatches();
+      let combo = 1;
+
+      while (matches.length > 0) {
+        m3Score += matches.length * 30 * combo;
+        document.getElementById('m3-score').innerText = m3Score;
+        document.getElementById('m3-status').innerText = combo > 1 ? `🔥 Комбо x${combo}! +${matches.length * 30 * combo}` : `💥 Отличный сбор!`;
+
+        // Удаляем совпавшие кристаллы
+        matches.forEach(pt => { m3Board[pt.r][pt.c] = null; });
+        m3Render();
+        await new Promise(res => setTimeout(res, 220));
+
+        // Падение сверху
+        for (let c = 0; c < M3_COLS; c++) {
+          let emptyRow = M3_ROWS - 1;
+          for (let r = M3_ROWS - 1; r >= 0; r--) {
+            if (m3Board[r][c] !== null) {
+              if (emptyRow !== r) {
+                m3Board[emptyRow][c] = m3Board[r][c];
+                m3Board[r][c] = null;
+              }
+              emptyRow--;
+            }
+          }
+          // Заполняем пустоты новыми
+          for (let r = emptyRow; r >= 0; r--) {
+            m3Board[r][c] = M3_ITEMS[Math.floor(Math.random() * M3_ITEMS.length)];
+          }
+        }
+
+        m3Render();
+        await new Promise(res => setTimeout(res, 220));
+        matches = m3CheckMatches();
+        combo++;
+      }
+    }
+
+    function m3CheckGameStatus() {
+      if (m3Score >= 1500) {
+        alert("👑 ПОБЕДА! Ты выполнил королевскую цель уровня!");
+        goToMenu();
+      } else if (m3Moves <= 0) {
+        alert("Ходы закончились! Попробуй еще раз.");
+        m3InitGame();
+      }
+    }
+
+    /* =========================================================================
+       2. МОРСКОЙ БОЙ
+       ========================================================================= */
+    let seaPlayerGrid = [], seaBotGrid = [];
+    let seaPlayerShipsList = [], seaBotShipsList = [];
+
+    function seaInitGame() {
+      seaPlayerGrid = Array(10).fill(0).map(() => Array(10).fill(0));
+      seaBotGrid = Array(10).fill(0).map(() => Array(10).fill(0));
+      seaPlayerShipsList = [];
+      seaBotShipsList = [];
+
+      seaPlaceAllShips(seaPlayerGrid, seaPlayerShipsList);
+      seaPlaceAllShips(seaBotGrid, seaBotShipsList);
+
+      seaUpdateCounters();
+      seaRenderFleetStatus();
+      document.getElementById('sea-status').innerText = "Твой ход: стреляй по верхнему полю!";
+      seaRender();
+    }
+
+    function seaPlaceAllShips(grid, shipsList) {
+      const lengths = [4, 3, 3, 2, 2, 1, 1];
+      for (let len of lengths) {
+        let placed = false;
+        while (!placed) {
+          const horiz = Math.random() > 0.5;
+          const r = Math.floor(Math.random() * (horiz ? 10 : 10 - len));
+          const c = Math.floor(Math.random() * (horiz ? 10 - len : 10));
+
+          let can = true;
+          for (let i = 0; i < len; i++) {
+            const tr = r + (horiz ? 0 : i), tc = c + (horiz ? i : 0);
+            if (grid[tr][tc] !== 0) can = false;
+          }
+
+          if (can) {
+            const shipCoords = [];
+            for (let i = 0; i < len; i++) {
+              const tr = r + (horiz ? 0 : i), tc = c + (horiz ? i : 0);
+              grid[tr][tc] = 1;
+              shipCoords.push({ r: tr, c: tc });
+            }
+            shipsList.push({ coords: shipCoords, hits: 0, sunk: false, length: len });
+            placed = true;
+          }
+        }
+      }
+    }
+
+    function seaUpdateCounters() {
+      const pAlive = seaPlayerShipsList.filter(s => !s.sunk).length;
+      const bAlive = seaBotShipsList.filter(s => !s.sunk).length;
+      document.getElementById('sea-player-ships').innerText = pAlive;
+      document.getElementById('sea-bot-ships').innerText = bAlive;
+    }
+
+    function seaRenderFleetStatus() {
+      const statusElem = document.getElementById('sea-bot-fleet-status');
+      if (!statusElem) return;
+      statusElem.innerHTML = '';
+
+      const sortedShips = [...seaBotShipsList].sort((a,b) => b.length - a.length);
+      sortedShips.forEach(ship => {
+        const item = document.createElement('div');
+        item.className = 'fleet-ship-item' + (ship.sunk ? ' sunk' : '');
+        for (let i = 0; i < ship.length; i++) {
+          const dot = document.createElement('div');
+          dot.className = 'fleet-deck-dot' + (i < ship.hits ? ' damaged' : '');
+          item.appendChild(dot);
+        }
+        statusElem.appendChild(item);
+      });
+    }
+
+    function seaRender() {
+      const bGridElem = document.getElementById('sea-bot-grid');
+      bGridElem.innerHTML = '';
+      for (let r = 0; r < 10; r++) {
+        for (let c = 0; c < 10; c++) {
+          const val = seaBotGrid[r][c];
+          const div = document.createElement('div');
+          div.className = 'sea-cell';
+          if (val === 2) div.classList.add('hit');
+          if (val === 4) div.classList.add('sunk');
+          if (val === 3) div.classList.add('miss');
+          div.onclick = () => seaPlayerShoot(r, c);
+          bGridElem.appendChild(div);
+        }
+      }
+
+      const pGridElem = document.getElementById('sea-player-grid');
+      pGridElem.innerHTML = '';
+      for (let r = 0; r < 10; r++) {
+        for (let c = 0; c < 10; c++) {
+          const val = seaPlayerGrid[r][c];
+          const div = document.createElement('div');
+          div.className = 'sea-cell';
+          if (val === 1) div.classList.add('ship');
+          if (val === 2) div.classList.add('hit');
+          if (val === 4) div.classList.add('sunk');
+          if (val === 3) div.classList.add('miss');
+          pGridElem.appendChild(div);
+        }
+      }
+    }
+
+    function seaPlayerShoot(r, c) {
+      if (seaBotGrid[r][c] >= 2) return;
+
+      if (seaBotGrid[r][c] === 1) {
+        seaBotGrid[r][c] = 2;
+
+        let hitShip = seaBotShipsList.find(s => s.coords.some(pt => pt.r === r && pt.c === c));
+        if (hitShip) {
+          hitShip.hits++;
+          if (hitShip.hits === hitShip.coords.length) {
+            hitShip.sunk = true;
+            hitShip.coords.forEach(pt => { seaBotGrid[pt.r][pt.c] = 4; });
+            document.getElementById('sea-status').innerText = `💥 ${hitShip.length}-палубный корабль ПОТОПЛЕН!`;
+          } else {
+            document.getElementById('sea-status').innerText = "💥 Попадание! Стреляй еще.";
+          }
+        }
+
+        seaUpdateCounters();
+        seaRenderFleetStatus();
+        seaRender();
+
+        if (seaBotShipsList.every(s => s.sunk)) {
+          alert("🎉 Победа! Весь вражеский флот уничтожен!");
+          goToMenu();
+        }
+      } else {
+        seaBotGrid[r][c] = 3;
+        document.getElementById('sea-status').innerText = "Мимо! Ход бота...";
+        seaRender();
+        setTimeout(seaBotShoot, 600);
+      }
+    }
+
+    function seaBotShoot() {
+      let r, c;
+      do {
+        r = Math.floor(Math.random() * 10);
+        c = Math.floor(Math.random() * 10);
+      } while (seaPlayerGrid[r][c] >= 2);
+
+      if (seaPlayerGrid[r][c] === 1) {
+        seaPlayerGrid[r][c] = 2;
+
+        let hitShip = seaPlayerShipsList.find(s => s.coords.some(pt => pt.r === r && pt.c === c));
+        if (hitShip) {
+          hitShip.hits++;
+          if (hitShip.hits === hitShip.coords.length) {
+            hitShip.sunk = true;
+            hitShip.coords.forEach(pt => { seaPlayerGrid[pt.r][pt.c] = 4; });
+            document.getElementById('sea-status').innerText = "Твой корабль ПОТОПЛЕН!";
+          } else {
+            document.getElementById('sea-status').innerText = "Бот попал по твоему кораблю!";
+          }
+        }
+
+        seaUpdateCounters();
+        seaRender();
+
+        if (seaPlayerShipsList.every(s => s.sunk)) {
+          alert("💀 Твой флот полностью разбит!");
+          goToMenu();
+          return;
+        }
+        setTimeout(seaBotShoot, 650);
+      } else {
+        seaPlayerGrid[r][c] = 3;
+        document.getElementById('sea-status').innerText = "Бот промахнулся. Твой выстрел!";
+        seaRender();
+      }
+    }
+
+    /* =========================================================================
+       3. ПОКЕР ТЕХАССКИЙ ХОЛДЕМ
+       ========================================================================= */
+    const POKER_SUITS = ['♠', '♥', '♦', '♣'];
+    const POKER_RANKS = ['2','3','4','5','6','7','8','9','10','В','Д','К','Т'];
+    const POKER_VALS  = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'В':11,'Д':12,'К':13,'Т':14 };
+
+    let pokerDeck = [], pokerPlayerHand = [], pokerBotHand = [], pokerBoard = [];
+    let pokerPot = 0, pokerStage = 0;
+    let pokerPlayerChips = 1000, pokerBotChips = 1000;
+    let pokerCurrentRaise = 50;
+
+    function pokerStartGame() {
+      pokerNewHand();
+    }
+
+    function pokerNewHand() {
+      pokerDeck = [];
+      for (let s of POKER_SUITS) {
+        for (let r of POKER_RANKS) {
+          pokerDeck.push({ suit: s, rank: r, isRed: s === '♥' || s === '♦' });
+        }
+      }
+      pokerDeck.sort(() => Math.random() - 0.5);
+
+      pokerPlayerChips -= 25;
+      pokerBotChips -= 25;
+      pokerPot = 50;
+      pokerStage = 0;
+      pokerCurrentRaise = 50;
+
+      pokerPlayerHand = [pokerDeck.pop(), pokerDeck.pop()];
+      pokerBotHand = [pokerDeck.pop(), pokerDeck.pop()];
+      pokerBoard = [];
+
+      document.getElementById('poker-bot-status').innerText = "в игре";
+      document.getElementById('poker-actions').style.display = 'flex';
+      document.getElementById('poker-restart-controls').style.display = 'none';
+      document.getElementById('poker-status').innerText = "Префлоп. Твой ход!";
+      pokerUpdateRaiseBtn();
+      pokerRender(false, true);
+    }
+
+    function pokerAdjustRaise(delta) {
+      pokerCurrentRaise = Math.max(50, Math.min(pokerPlayerChips, pokerCurrentRaise + delta));
+      pokerUpdateRaiseBtn();
+    }
+
+    function pokerUpdateRaiseBtn() {
+      document.getElementById('poker-raise-btn').innerText = `Рейз ${pokerCurrentRaise}`;
+    }
+
+    function pokerRender(reveal, animate = false) {
+      document.getElementById('poker-chips').innerText = pokerPlayerChips;
+      document.getElementById('poker-bot-chips').innerText = pokerBotChips;
+      document.getElementById('poker-pot').innerText = pokerPot;
+
+      document.getElementById('poker-player-cards').innerHTML = pokerPlayerHand.map(c => renderCardHTML(c, '', animate)).join('');
+      document.getElementById('poker-board-cards').innerHTML = pokerBoard.map(c => renderCardHTML(c, '', animate)).join('');
+
+      if (!reveal) {
+        document.getElementById('poker-bot-cards').innerHTML = `<div class="card back"></div><div class="card back"></div>`;
+      } else {
+        document.getElementById('poker-bot-cards').innerHTML = pokerBotHand.map(c => renderCardHTML(c, '', animate)).join('');
+      }
+
+      const pScore = evaluatePoker7([...pokerPlayerHand, ...pokerBoard]);
+      document.getElementById('poker-combo-text').innerText = pScore.name;
+    }
+
+    function evaluatePoker7(cards) {
+      if (cards.length < 2) return { score: 0, name: "Карты на руках" };
+
+      const rankCounts = {}, suitCounts = {};
+      cards.forEach(c => {
+        rankCounts[c.rank] = (rankCounts[c.rank] || 0) + 1;
+        suitCounts[c.suit] = (suitCounts[c.suit] || 0) + 1;
+      });
+
+      const uniqueVals = [...new Set(cards.map(c => POKER_VALS[c.rank]))].sort((a,b)=>b-a);
+
+      let isStraight = false, straightHigh = 0;
+      for (let i = 0; i <= uniqueVals.length - 5; i++) {
+        if (uniqueVals[i] - uniqueVals[i+4] === 4) { isStraight = true; straightHigh = uniqueVals[i]; break; }
+      }
+
+      let isFlush = false, flushSuit = '';
+      for (let s in suitCounts) {
+        if (suitCounts[s] >= 5) { isFlush = true; flushSuit = s; break; }
+      }
+
+      if (isFlush && isStraight) {
+        const flushCards = cards.filter(c => c.suit === flushSuit).map(c => POKER_VALS[c.rank]).sort((a,b)=>b-a);
+        for (let i = 0; i <= flushCards.length - 5; i++) {
+          if (flushCards[i] - flushCards[i+4] === 4) return { score: 900 + flushCards[i], name: "Стрит-флеш! 🔥" };
+        }
+      }
+
+      const pairs = [], triplets = [], quads = [];
+      for (let r in rankCounts) {
+        if (rankCounts[r] === 4) quads.push(POKER_VALS[r]);
+        if (rankCounts[r] === 3) triplets.push(POKER_VALS[r]);
+        if (rankCounts[r] === 2) pairs.push(POKER_VALS[r]);
+      }
+      pairs.sort((a,b)=>b-a); triplets.sort((a,b)=>b-a);
+
+      if (quads.length > 0) return { score: 800 + quads[0], name: "Каре!" };
+      if (triplets.length > 0 && (triplets.length > 1 || pairs.length > 0)) return { score: 700 + triplets[0], name: "Фулл-хаус!" };
+      if (isFlush) return { score: 600, name: "Флеш!" };
+      if (isStraight) return { score: 500 + straightHigh, name: "Стрит!" };
+      if (triplets.length > 0) return { score: 400 + triplets[0], name: "Сет (тройка)" };
+      if (pairs.length >= 2) return { score: 300 + pairs[0] * 2 + pairs[1], name: `Две пары (${pairs[0]} и ${pairs[1]})` };
+      if (pairs.length === 1) return { score: 200 + pairs[0], name: `Пара (${pairs[0]})` };
+
+      return { score: uniqueVals[0] || 0, name: `Старшая карта (${cards[0].rank})` };
+    }
+
+    function pokerAction(action) {
+      if (action === 'fold') {
+        pokerBotChips += pokerPot;
+        document.getElementById('poker-status').innerText = "Ты сбросил карты. Бот забрал банк.";
+        pokerEndHand();
+        return;
+      }
+
+      if (action === 'raise') {
+        const bet = Math.min(pokerPlayerChips, pokerCurrentRaise);
+        pokerPlayerChips -= bet;
+        pokerPot += bet;
+
+        const botEval = evaluatePoker7([...pokerBotHand, ...pokerBoard]);
+        if (botEval.score < 200 && pokerStage >= 1 && bet >= 100) {
+          document.getElementById('poker-bot-status').innerText = "сбросил (Фолд)";
+          pokerPlayerChips += pokerPot;
+          document.getElementById('poker-status').innerText = "Бот испугался твоего рейза и сбросил! Банк твой!";
+          pokerEndHand();
+          return;
+        }
+
+        pokerBotChips -= bet;
+        pokerPot += bet;
+        document.getElementById('poker-status').innerText = `Ты поднял +${bet}. Бот ответил коллом!`;
+      }
+
+      const botCheckEval = evaluatePoker7([...pokerBotHand, ...pokerBoard]);
+      if (botCheckEval.score >= 300 && Math.random() > 0.4 && action === 'check') {
+        const botRaise = 50;
+        pokerBotChips -= botRaise;
+        pokerPot += botRaise;
+        pokerPlayerChips -= botRaise;
+        pokerPot += botRaise;
+        document.getElementById('poker-status').innerText = "Бот агрессивно поднял +50! Ты уравнял.";
+      }
+
+      pokerNextStage();
+    }
+
+    function pokerNextStage() {
+      pokerStage++;
+      if (pokerStage === 1) {
+        pokerBoard.push(pokerDeck.pop(), pokerDeck.pop(), pokerDeck.pop());
+        document.getElementById('poker-status').innerText = "Флоп! Делай ход.";
+      } else if (pokerStage === 2) {
+        pokerBoard.push(pokerDeck.pop());
+        document.getElementById('poker-status').innerText = "Тёрн! Делай ход.";
+      } else if (pokerStage === 3) {
+        pokerBoard.push(pokerDeck.pop());
+        document.getElementById('poker-status').innerText = "Ривер! Финальный раунд.";
+      } else {
+        pokerShowdown();
+        return;
+      }
+      pokerRender(false, true);
+    }
+
+    function pokerShowdown() {
+      pokerRender(true, false);
+      const pScore = evaluatePoker7([...pokerPlayerHand, ...pokerBoard]);
+      const bScore = evaluatePoker7([...pokerBotHand, ...pokerBoard]);
+
+      if (pScore.score > bScore.score) {
+        pokerPlayerChips += pokerPot;
+        document.getElementById('poker-status').innerText = `Победа! У тебя: ${pScore.name} против ${bScore.name}`;
+      } else if (pScore.score === bScore.score) {
+        pokerPlayerChips += Math.floor(pokerPot / 2);
+        pokerBotChips += Math.floor(pokerPot / 2);
+        document.getElementById('poker-status').innerText = `Ничья! Банк поделен (${pScore.name})`;
+      } else {
+        pokerBotChips += pokerPot;
+        document.getElementById('poker-status').innerText = `Бот выиграл! У него: ${bScore.name}`;
+      }
+      pokerEndHand();
+    }
+
+    function pokerEndHand() {
+      document.getElementById('poker-actions').style.display = 'none';
+      document.getElementById('poker-restart-controls').style.display = 'flex';
+      pokerRender(true, false);
+    }
+
+    /* =========================================================================
+       4. 21 ОЧКО
+       ========================================================================= */
+    let bjDeck = [], bjPlayer = [], bjDealer = [];
+    let bjBalance = 1000, bjBet = 50, bjGameOver = false;
+
+    function bjCreateDeck() {
+      bjDeck = [];
+      const suits = ['♠', '♥', '♦', '♣'];
+      const ranks = ['2','3','4','5','6','7','8','9','10','В','Д','К','Т'];
+      for (let s of suits) for (let r of ranks) bjDeck.push({ suit: s, rank: r, isRed: s==='♥'||s==='♦' });
+      bjDeck.sort(() => Math.random() - 0.5);
+    }
+
+    function bjScore(hand) {
+      let score = 0, aces = 0;
+      for (let c of hand) {
+        if (['В','Д','К'].includes(c.rank)) score += 10;
+        else if (c.rank === 'Т') { score += 11; aces++; }
+        else score += parseInt(c.rank);
+      }
+      while (score > 21 && aces > 0) { score -= 10; aces--; }
+      return score;
+    }
+
+    function bjStartRound() {
+      if (bjBalance < bjBet) { alert("Фишки закончились! Начислено +500."); bjBalance = 500; }
+      bjBalance -= bjBet;
+      document.getElementById('bj-balance').innerText = bjBalance;
+      document.getElementById('bj-controls').style.display = 'flex';
+      document.getElementById('bj-restart-controls').style.display = 'none';
+      document.getElementById('bj-status').innerText = "Твой ход: взять карту или хватит?";
+      bjGameOver = false;
+
+      bjCreateDeck();
+      bjPlayer = [bjDeck.pop(), bjDeck.pop()];
+      bjDealer = [bjDeck.pop(), bjDeck.pop()];
+
+      bjRender(false, true);
+      if (bjScore(bjPlayer) === 21) bjEndRound("Блэкджек! Выигрыш 3:2!", bjBet * 2.5);
+    }
+
+    function bjRender(reveal, animate = false) {
+      document.getElementById('bj-player-cards').innerHTML = bjPlayer.map(c => renderCardHTML(c, '', animate)).join('');
+      document.getElementById('bj-player-score').innerText = bjScore(bjPlayer);
+
+      const dScore = reveal ? bjScore(bjDealer) : '?';
+      document.getElementById('bj-dealer-score').innerText = dScore;
+
+      if (!reveal) {
+        document.getElementById('bj-dealer-cards').innerHTML = `${renderCardHTML(bjDealer[0], '', animate)}<div class="card back"></div>`;
+      } else {
+        document.getElementById('bj-dealer-cards').innerHTML = bjDealer.map(c => renderCardHTML(c, '', animate)).join('');
+      }
+    }
+
+    function bjHit() {
+      if (bjGameOver) return;
+      bjPlayer.push(bjDeck.pop());
+      bjRender(false, true);
+      if (bjScore(bjPlayer) > 21) bjEndRound("Перебор! Ты проиграл.", 0);
+    }
+
+    function bjStand() {
+      if (bjGameOver) return;
+      bjRender(true, false);
+      while (bjScore(bjDealer) < 17) bjDealer.push(bjDeck.pop());
+      bjRender(true, true);
+
+      const pS = bjScore(bjPlayer), dS = bjScore(bjDealer);
+      if (dS > 21 || pS > dS) bjEndRound("Ты выиграл!", bjBet * 2);
+      else if (pS === dS) bjEndRound("Ничья! Ставка возвращена.", bjBet);
+      else bjEndRound("Дилер выиграл.", 0);
+    }
+
+    function bjEndRound(msg, winAmount) {
+      bjGameOver = true;
+      bjBalance += winAmount;
+      document.getElementById('bj-balance').innerText = bjBalance;
+      document.getElementById('bj-status').innerText = msg;
+      document.getElementById('bj-controls').style.display = 'none';
+      document.getElementById('bj-restart-controls').style.display = 'flex';
+    }
+
+    /* =========================================================================
+       5. ДУРАК
+       ========================================================================= */
+    const DURAK_SUITS = ['♠', '♥', '♦', '♣'];
+    const DURAK_RANKS = ['6', '7', '8', '9', '10', 'В', 'Д', 'К', 'Т'];
+    const DURAK_VALUES = { '6':6, '7':7, '8':8, '9':9, '10':10, 'В':11, 'Д':12, 'К':13, 'Т':14 };
 
     let durakMode = 'podkidnoy';
     let durakDeck = [], durakPlayerHand = [], durakBotHand = [];
@@ -388,8 +1160,8 @@
 
     function durakInitGame() {
       durakDeck = [];
-      for (let s of SUITS) {
-        for (let r of RANKS) {
+      for (let s of DURAK_SUITS) {
+        for (let r of DURAK_RANKS) {
           durakDeck.push({ suit: s, rank: r, isRed: s === '♥' || s === '♦' });
         }
       }
@@ -402,16 +1174,16 @@
       durakBotHand = durakDeck.splice(durakDeck.length - 6, 6);
       durakSortHand(durakPlayerHand);
 
-      const pTrumps = durakPlayerHand.filter(c => c.suit === durakTrumpSuit).sort((a,b)=>VALUES[a.rank]-VALUES[b.rank]);
-      const bTrumps = durakBotHand.filter(c => c.suit === durakTrumpSuit).sort((a,b)=>VALUES[a.rank]-VALUES[b.rank]);
+      const pTrumps = durakPlayerHand.filter(c => c.suit === durakTrumpSuit).sort((a,b)=>DURAK_VALUES[a.rank]-DURAK_VALUES[b.rank]);
+      const bTrumps = durakBotHand.filter(c => c.suit === durakTrumpSuit).sort((a,b)=>DURAK_VALUES[a.rank]-DURAK_VALUES[b.rank]);
 
-      if (pTrumps.length > 0 && bTrumps.length > 0) durakIsPlayerAttacking = VALUES[pTrumps[0].rank] < VALUES[bTrumps[0].rank];
+      if (pTrumps.length > 0 && bTrumps.length > 0) durakIsPlayerAttacking = DURAK_VALUES[pTrumps[0].rank] < DURAK_VALUES[bTrumps[0].rank];
       else if (pTrumps.length > 0) durakIsPlayerAttacking = true;
       else if (bTrumps.length > 0) durakIsPlayerAttacking = false;
-      else durakIsPlayerAttacking = Math.min(...durakPlayerHand.map(c=>VALUES[c.rank])) <= Math.min(...durakBotHand.map(c=>VALUES[c.rank]));
+      else durakIsPlayerAttacking = Math.min(...durakPlayerHand.map(c=>DURAK_VALUES[c.rank])) <= Math.min(...durakBotHand.map(c=>DURAK_VALUES[c.rank]));
 
       if (durakIsPlayerAttacking) {
-        document.getElementById('durak-status').innerText = "Первый ход твой! Перетяни или кликни карту.";
+        document.getElementById('durak-status').innerText = "Первый ход твой! Перетяни карту.";
       } else {
         document.getElementById('durak-status').innerText = "Первый ход бота. Защищайся!";
         setTimeout(durakBotAttack, 1000);
@@ -424,19 +1196,8 @@
         const aT = a.suit === durakTrumpSuit, bT = b.suit === durakTrumpSuit;
         if (aT && !bT) return 1;
         if (!aT && bT) return -1;
-        return VALUES[a.rank] - VALUES[b.rank];
+        return DURAK_VALUES[a.rank] - DURAK_VALUES[b.rank];
       });
-    }
-
-    function renderDurakCard(c, extraClass = '') {
-      const isTrump = c.suit === durakTrumpSuit;
-      return `
-        <div class="card ${c.isRed ? 'red' : ''} ${isTrump ? 'trump' : ''} ${extraClass}">
-          <div class="card-corner">${c.rank}</div>
-          <div class="card-center">${c.suit}</div>
-          <div class="card-corner" style="text-align: right;">${c.rank}</div>
-        </div>
-      `;
     }
 
     function durakRender() {
@@ -445,15 +1206,18 @@
       document.getElementById('durak-trump-val').innerText = `${durakTrumpCard.rank}${durakTrumpCard.suit}`;
 
       const handDiv = document.getElementById('durak-hand');
-      handDiv.innerHTML = durakPlayerHand.map((c, i) => `<div class="durak-card-wrap" data-index="${i}">${renderDurakCard(c)}</div>`).join('');
+      handDiv.innerHTML = durakPlayerHand.map((c, i) => {
+        const isTrump = c.suit === durakTrumpSuit;
+        return `<div class="durak-card-wrap" data-index="${i}">${renderCardHTML(c, isTrump ? 'trump' : '')}</div>`;
+      }).join('');
 
       document.querySelectorAll('.durak-card-wrap').forEach(w => durakSetupDrag(w, parseInt(w.dataset.index)));
 
       const tableDiv = document.getElementById('durak-table');
       tableDiv.innerHTML = durakTable.map((p, i) => `
         <div class="card-pair" data-table-idx="${i}">
-          ${renderDurakCard(p.attack, 'attack-card')}
-          ${p.defend ? renderDurakCard(p.defend, 'defend-card') : ''}
+          ${renderCardHTML(p.attack, 'attack-card ' + (p.attack.suit===durakTrumpSuit?'trump':''))}
+          ${p.defend ? renderCardHTML(p.defend, 'defend-card ' + (p.defend.suit===durakTrumpSuit?'trump':'')) : ''}
         </div>
       `).join('');
 
@@ -475,7 +1239,7 @@
     }
 
     function durakCanBeat(att, def) {
-      if (def.suit === att.suit) return VALUES[def.rank] > VALUES[att.rank];
+      if (def.suit === att.suit) return DURAK_VALUES[def.rank] > DURAK_VALUES[att.rank];
       return def.suit === durakTrumpSuit && att.suit !== durakTrumpSuit;
     }
 
@@ -552,12 +1316,12 @@
       targets.sort((a,b) => {
         const aT = a.att.suit === durakTrumpSuit, bT = b.att.suit === durakTrumpSuit;
         if (card.suit === durakTrumpSuit) {
-          if (aT && bT) return VALUES[b.att.rank] - VALUES[a.att.rank];
+          if (aT && bT) return DURAK_VALUES[b.att.rank] - DURAK_VALUES[a.att.rank];
           if (aT && !bT) return -1;
           if (!aT && bT) return 1;
-          return VALUES[b.att.rank] - VALUES[a.att.rank];
+          return DURAK_VALUES[b.att.rank] - DURAK_VALUES[a.att.rank];
         }
-        return VALUES[b.att.rank] - VALUES[a.att.rank];
+        return DURAK_VALUES[b.att.rank] - DURAK_VALUES[a.att.rank];
       });
       return targets[0].idx;
     }
@@ -675,7 +1439,7 @@
           else {
             const curT = durakBotHand[i].suit === durakTrumpSuit, bestT = durakBotHand[bestIdx].suit === durakTrumpSuit;
             if (!curT && bestT) bestIdx = i;
-            else if (curT === bestT && VALUES[durakBotHand[i].rank] < VALUES[durakBotHand[bestIdx].rank]) bestIdx = i;
+            else if (curT === bestT && DURAK_VALUES[durakBotHand[i].rank] < DURAK_VALUES[durakBotHand[bestIdx].rank]) bestIdx = i;
           }
         }
       }
@@ -747,7 +1511,7 @@
         const aT = a.suit === durakTrumpSuit, bT = b.suit === durakTrumpSuit;
         if (aT && !bT) return 1;
         if (!aT && bT) return -1;
-        return VALUES[a.rank] - VALUES[b.rank];
+        return DURAK_VALUES[a.rank] - DURAK_VALUES[b.rank];
       });
 
       const card = durakBotHand.shift();
@@ -774,319 +1538,6 @@
         }
       }
       return false;
-    }
-
-
-    /* =========================================================================
-       2. ЛОГИКА 21 ОЧКО (BLACKJACK)
-       ========================================================================= */
-    let bjDeck = [], bjPlayer = [], bjDealer = [];
-    let bjBalance = 1000, bjBet = 50, bjGameOver = false;
-
-    function bjCreateDeck() {
-      bjDeck = [];
-      const suits = ['♠', '♥', '♦', '♣'];
-      const ranks = ['2','3','4','5','6','7','8','9','10','В','Д','К','Т'];
-      for (let s of suits) for (let r of ranks) bjDeck.push({ suit: s, rank: r, isRed: s==='♥'||s==='♦' });
-      bjDeck.sort(() => Math.random() - 0.5);
-    }
-
-    function bjScore(hand) {
-      let score = 0, aces = 0;
-      for (let c of hand) {
-        if (['В','Д','К'].includes(c.rank)) score += 10;
-        else if (c.rank === 'Т') { score += 11; aces++; }
-        else score += parseInt(c.rank);
-      }
-      while (score > 21 && aces > 0) { score -= 10; aces--; }
-      return score;
-    }
-
-    function bjStartRound() {
-      if (bjBalance < bjBet) { alert("Фишки закончились! Добавлено +500."); bjBalance = 500; }
-      bjBalance -= bjBet;
-      document.getElementById('bj-balance').innerText = bjBalance;
-      document.getElementById('bj-controls').style.display = 'flex';
-      document.getElementById('bj-restart-controls').style.display = 'none';
-      document.getElementById('bj-status').innerText = "Твой ход: взять карту или хватит?";
-      bjGameOver = false;
-
-      bjCreateDeck();
-      bjPlayer = [bjDeck.pop(), bjDeck.pop()];
-      bjDealer = [bjDeck.pop(), bjDeck.pop()];
-
-      bjRender(false);
-      if (bjScore(bjPlayer) === 21) bjEndRound("Блэкджек! Ты выиграл 3:2!", bjBet * 2.5);
-    }
-
-    function bjRender(reveal) {
-      document.getElementById('bj-player-cards').innerHTML = bjPlayer.map(c => renderDurakCard(c)).join('');
-      document.getElementById('bj-player-score').innerText = bjScore(bjPlayer);
-
-      const dScore = reveal ? bjScore(bjDealer) : '?';
-      document.getElementById('bj-dealer-score').innerText = dScore;
-
-      if (!reveal) {
-        document.getElementById('bj-dealer-cards').innerHTML = `${renderDurakCard(bjDealer[0])}<div class="card back"></div>`;
-      } else {
-        document.getElementById('bj-dealer-cards').innerHTML = bjDealer.map(c => renderDurakCard(c)).join('');
-      }
-    }
-
-    function bjHit() {
-      if (bjGameOver) return;
-      bjPlayer.push(bjDeck.pop());
-      bjRender(false);
-      if (bjScore(bjPlayer) > 21) bjEndRound("Перебор! Ты проиграл.", 0);
-    }
-
-    function bjStand() {
-      if (bjGameOver) return;
-      bjRender(true);
-      while (bjScore(bjDealer) < 17) bjDealer.push(bjDeck.pop());
-      bjRender(true);
-
-      const pS = bjScore(bjPlayer), dS = bjScore(bjDealer);
-      if (dS > 21 || pS > dS) bjEndRound("Ты выиграл!", bjBet * 2);
-      else if (pS === dS) bjEndRound("Ничья! Ставка возвращена.", bjBet);
-      else bjEndRound("Дилер выиграл.", 0);
-    }
-
-    function bjEndRound(msg, winAmount) {
-      bjGameOver = true;
-      bjBalance += winAmount;
-      document.getElementById('bj-balance').innerText = bjBalance;
-      document.getElementById('bj-status').innerText = msg;
-      document.getElementById('bj-controls').style.display = 'none';
-      document.getElementById('bj-restart-controls').style.display = 'flex';
-    }
-
-
-    /* =========================================================================
-       3. ЛОГИКА ТЕХАССКОГО ХОЛДЕМА (POKER)
-       ========================================================================= */
-    let pokerDeck = [], pokerPlayerHand = [], pokerBotHand = [], pokerBoard = [];
-    let pokerPot = 0, pokerStage = 0; // 0-Preflop, 1-Flop, 2-Turn, 3-River
-    let pokerPlayerChips = 1000, pokerBotChips = 1000;
-
-    function pokerStartGame() {
-      pokerNewHand();
-    }
-
-    function pokerNewHand() {
-      pokerDeck = [];
-      const suits = ['♠', '♥', '♦', '♣'];
-      const ranks = ['2','3','4','5','6','7','8','9','10','В','Д','К','Т'];
-      for (let s of suits) for (let r of ranks) pokerDeck.push({ suit: s, rank: r, isRed: s==='♥'||s==='♦' });
-      pokerDeck.sort(() => Math.random() - 0.5);
-
-      pokerPlayerChips -= 25;
-      pokerBotChips -= 25;
-      pokerPot = 50;
-      pokerStage = 0;
-
-      pokerPlayerHand = [pokerDeck.pop(), pokerDeck.pop()];
-      pokerBotHand = [pokerDeck.pop(), pokerDeck.pop()];
-      pokerBoard = [];
-
-      document.getElementById('poker-actions').style.display = 'flex';
-      document.getElementById('poker-restart-controls').style.display = 'none';
-      document.getElementById('poker-status').innerText = "Префлоп. Твой ход!";
-      document.getElementById('poker-combo-text').innerText = "Твоя рука";
-      pokerRender(false);
-    }
-
-    function pokerRender(reveal) {
-      document.getElementById('poker-chips').innerText = pokerPlayerChips;
-      document.getElementById('poker-bot-chips').innerText = pokerBotChips;
-      document.getElementById('poker-pot').innerText = pokerPot;
-
-      document.getElementById('poker-player-cards').innerHTML = pokerPlayerHand.map(c => renderDurakCard(c)).join('');
-      document.getElementById('poker-board-cards').innerHTML = pokerBoard.map(c => renderDurakCard(c)).join('');
-
-      if (!reveal) {
-        document.getElementById('poker-bot-cards').innerHTML = `<div class="card back"></div><div class="card back"></div>`;
-      } else {
-        document.getElementById('poker-bot-cards').innerHTML = pokerBotHand.map(c => renderDurakCard(c)).join('');
-      }
-    }
-
-    function pokerAction(type) {
-      if (type === 'fold') {
-        pokerBotChips += pokerPot;
-        document.getElementById('poker-status').innerText = "Ты сбросил карты. Бот забирает банк.";
-        pokerEndHand();
-        return;
-      }
-
-      if (type === 'raise') {
-        pokerPlayerChips -= 50;
-        pokerBotChips -= 50;
-        pokerPot += 100;
-      }
-
-      pokerStage++;
-      if (pokerStage === 1) { // Флоп: 3 карты
-        pokerBoard.push(pokerDeck.pop(), pokerDeck.pop(), pokerDeck.pop());
-        document.getElementById('poker-status').innerText = "Флоп! Делай ход.";
-      } else if (pokerStage === 2) { // Тёрн: +1 карта
-        pokerBoard.push(pokerDeck.pop());
-        document.getElementById('poker-status').innerText = "Тёрн! Делай ход.";
-      } else if (pokerStage === 3) { // Ривер: +1 карта
-        pokerBoard.push(pokerDeck.pop());
-        document.getElementById('poker-status').innerText = "Ривер! Финальный раунд ставок.";
-      } else { // Вскрытие
-        pokerShowdown();
-        return;
-      }
-      pokerRender(false);
-    }
-
-    function pokerShowdown() {
-      pokerRender(true);
-      // Упрощенный рандомизатор силы с преимуществом игрока при хороших картах
-      const pBest = Math.max(...pokerPlayerHand.map(c=>VALUES[c.rank]||2));
-      const bBest = Math.max(...pokerBotHand.map(c=>VALUES[c.rank]||2));
-
-      if (pBest >= bBest) {
-        pokerPlayerChips += pokerPot;
-        document.getElementById('poker-status').innerText = "Вскрытие! Ты победил и забрал банк!";
-      } else {
-        pokerBotChips += pokerPot;
-        document.getElementById('poker-status').innerText = "Вскрытие! Бот показал старшую комбинацию.";
-      }
-      pokerEndHand();
-    }
-
-    function pokerEndHand() {
-      document.getElementById('poker-actions').style.display = 'none';
-      document.getElementById('poker-restart-controls').style.display = 'flex';
-      pokerRender(true);
-    }
-
-
-    /* =========================================================================
-       4. ЛОГИКА МОРСКОГО БОЯ (BATTLESHIP)
-       ========================================================================= */
-    let seaPlayerGrid = [], seaBotGrid = [];
-    let seaPlayerHits = 0, seaBotHits = 0;
-    const TOTAL_SHIP_CELLS = 14;
-
-    function seaInitGame() {
-      seaPlayerHits = 0;
-      seaBotHits = 0;
-      seaPlayerGrid = Array(10).fill(0).map(() => Array(10).fill(0));
-      seaBotGrid = Array(10).fill(0).map(() => Array(10).fill(0));
-
-      seaPlaceShips(seaPlayerGrid);
-      seaPlaceShips(seaBotGrid);
-
-      document.getElementById('sea-player-ships').innerText = TOTAL_SHIP_CELLS;
-      document.getElementById('sea-bot-ships').innerText = TOTAL_SHIP_CELLS;
-      document.getElementById('sea-status').innerText = "Твой ход: стреляй по верхнему полю!";
-
-      seaRender();
-    }
-
-    function seaPlaceShips(grid) {
-      const lengths = [4, 3, 3, 2, 2];
-      for (let len of lengths) {
-        let placed = false;
-        while (!placed) {
-          const horiz = Math.random() > 0.5;
-          const r = Math.floor(Math.random() * (horiz ? 10 : 10 - len));
-          const c = Math.floor(Math.random() * (horiz ? 10 - len : 10));
-
-          let can = true;
-          for (let i = 0; i < len; i++) {
-            const tr = r + (horiz ? 0 : i), tc = c + (horiz ? i : 0);
-            if (grid[tr][tc] !== 0) can = false;
-          }
-          if (can) {
-            for (let i = 0; i < len; i++) {
-              grid[r + (horiz ? 0 : i)][c + (horiz ? i : 0)] = 1;
-            }
-            placed = true;
-          }
-        }
-      }
-    }
-
-    function seaRender() {
-      const bGridElem = document.getElementById('sea-bot-grid');
-      bGridElem.innerHTML = '';
-      for (let r = 0; r < 10; r++) {
-        for (let c = 0; c < 10; c++) {
-          const val = seaBotGrid[r][c];
-          const div = document.createElement('div');
-          div.className = 'sea-cell';
-          if (val === 2) div.classList.add('hit');
-          if (val === 3) div.classList.add('miss');
-          div.onclick = () => seaPlayerShoot(r, c);
-          bGridElem.appendChild(div);
-        }
-      }
-
-      const pGridElem = document.getElementById('sea-player-grid');
-      pGridElem.innerHTML = '';
-      for (let r = 0; r < 10; r++) {
-        for (let c = 0; c < 10; c++) {
-          const val = seaPlayerGrid[r][c];
-          const div = document.createElement('div');
-          div.className = 'sea-cell';
-          if (val === 1) div.classList.add('ship');
-          if (val === 2) div.classList.add('hit');
-          if (val === 3) div.classList.add('miss');
-          pGridElem.appendChild(div);
-        }
-      }
-    }
-
-    function seaPlayerShoot(r, c) {
-      if (seaBotGrid[r][c] >= 2) return;
-
-      if (seaBotGrid[r][c] === 1) {
-        seaBotGrid[r][c] = 2;
-        seaPlayerHits++;
-        document.getElementById('sea-bot-ships').innerText = (TOTAL_SHIP_CELLS - seaPlayerHits);
-        document.getElementById('sea-status').innerText = "💥 Попадание! Стреляй еще раз.";
-        seaRender();
-        if (seaPlayerHits >= TOTAL_SHIP_CELLS) {
-          alert("🎉 Победа! Ты потопил весь флот врага!");
-          goToMenu();
-        }
-      } else {
-        seaBotGrid[r][c] = 3;
-        document.getElementById('sea-status').innerText = "Мимо! Ход бота...";
-        seaRender();
-        setTimeout(seaBotShoot, 600);
-      }
-    }
-
-    function seaBotShoot() {
-      let r, c;
-      do {
-        r = Math.floor(Math.random() * 10);
-        c = Math.floor(Math.random() * 10);
-      } while (seaPlayerGrid[r][c] >= 2);
-
-      if (seaPlayerGrid[r][c] === 1) {
-        seaPlayerGrid[r][c] = 2;
-        seaBotHits++;
-        document.getElementById('sea-player-ships').innerText = (TOTAL_SHIP_CELLS - seaBotHits);
-        document.getElementById('sea-status').innerText = "Бот попал по твоему кораблю!";
-        seaRender();
-        if (seaBotHits >= TOTAL_SHIP_CELLS) {
-          alert("💀 Твой флот разбит! Бот победил.");
-          goToMenu();
-          return;
-        }
-        setTimeout(seaBotShoot, 700);
-      } else {
-        seaPlayerGrid[r][c] = 3;
-        document.getElementById('sea-status').innerText = "Бот промахнулся. Твой выстрел!";
-        seaRender();
-      }
     }
   </script>
 </body>
